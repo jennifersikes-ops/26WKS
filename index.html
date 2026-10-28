@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Science Review Quest — TEKS Grades 6–8</title>
+<style>
+:root{--ink:#1b2437;--mut:#5b667a;--bg:#eef3ff;--card:#fff;--pri:#3b5bdb;--pri2:#2f49b3;--acc:#f76707;--ok:#2f9e44;--okbg:#ebfbee;--bad:#e03131;--badbg:#fff0f0;--line:#d9e0f0;--navy:#12224a}
+*{box-sizing:border-box}
+html{font-size:18px}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:linear-gradient(180deg,#dfe8ff 0%,#f6f8ff 340px,#f6f8ff 100%);min-height:100vh}
+#app{max-width:920px;margin:0 auto;padding:16px 14px 60px}
+h1,h2,h3{margin:0 0 .4em;line-height:1.2}
+button{font:inherit;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 6px 20px rgba(30,50,110,.08);margin-bottom:16px}
+.hero{text-align:center;padding:26px 18px}
+.hero .big{font-size:56px;line-height:1}
+.hero h1{font-size:2rem;color:var(--navy)}
+.sub{color:var(--mut)}
+.small{font-size:.85rem;color:var(--mut)}
+.btn{border:0;border-radius:14px;padding:12px 20px;min-height:48px;font-weight:700;background:#e7ecfb;color:var(--navy)}
+.btn:hover{filter:brightness(.97)}
+.btn.primary{background:var(--pri);color:#fff}
+.btn.primary:hover{background:var(--pri2)}
+.btn.warn{background:#fff4e6;color:#a64b00}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+input[type=text]{font:inherit;padding:12px 14px;border:2px solid var(--line);border-radius:12px;min-height:48px;width:100%;max-width:320px}
+input[type=text]:focus,select:focus{outline:3px solid #b6c4ff;border-color:var(--pri)}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;text-align:left;margin:18px 0}
+.rules div{background:#f4f7ff;border-radius:12px;padding:10px 12px;font-size:.92rem}
+.hud{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:16px;padding:10px 14px;margin-bottom:14px}
+.hud .pill{background:rgba(255,255,255,.14);border-radius:999px;padding:4px 12px;font-weight:700;white-space:nowrap}
+.hud .t{font-weight:800}
+.bar{height:10px;background:#dfe6fa;border-radius:99px;overflow:hidden;margin:6px 0 14px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#4dabf7,#3b5bdb);border-radius:99px;transition:width .4s}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.zone{background:#fff;border:2px solid var(--line);border-radius:16px;padding:14px 12px;text-align:center;transition:transform .12s,box-shadow .12s}
+.zone:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(30,50,110,.12)}
+.zone .zi{font-size:38px}
+.zone .zt{font-weight:800;margin:4px 0 2px;color:var(--navy)}
+.zone .zk{font-size:.8rem;color:var(--mut)}
+.zone .zs{margin-top:6px;font-weight:700;color:var(--acc);min-height:1.4em}
+.zone.done{border-color:#8ce99a;background:#f4fff6}
+.zone.locked{opacity:.55}
+.zone.boss{border-color:#ffc078;background:#fff9f0}
+.badge{display:inline-block;background:#e7ecfb;color:var(--pri2);font-weight:800;font-size:.8rem;padding:3px 10px;border-radius:99px}
+.qtext{font-size:1.2rem;margin:10px 0 12px}
+.vis{display:block;width:100%;max-width:460px;height:auto;margin:6px auto 14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.opts{display:grid;gap:10px}
+.gopts{grid-template-columns:repeat(2,1fr)}
+.opt{display:flex;gap:12px;align-items:center;text-align:left;background:#f6f8ff;border:2px solid var(--line);border-radius:14px;padding:12px 14px;min-height:54px;color:var(--ink)}
+.opt:hover:not([disabled]){border-color:var(--pri);background:#eef2ff}
+.opt .key{flex:none;width:28px;height:28px;border-radius:8px;background:#dfe6fa;font-weight:800;display:grid;place-items:center;font-size:.85rem}
+.opt .otxt{flex:1}
+.opt .otxt svg{display:block;width:100%;height:auto;border-radius:8px}
+.opt.right{background:var(--okbg);border-color:var(--ok)}
+.opt.wrong{background:var(--badbg);border-color:var(--bad)}
+.opt[disabled]{cursor:default}
+.numrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.numrow input{max-width:200px}
+.unit{font-weight:700;color:var(--mut)}
+.err{color:var(--bad);min-height:1.2em;font-size:.9rem;margin-top:6px}
+.slots{display:grid;gap:8px;margin:10px 0}
+.slot{display:block;text-align:left;border-radius:12px;padding:10px 14px;border:2px dashed var(--line);color:var(--mut);background:#fafbff;min-height:46px}
+.slot.filled{border:2px solid var(--pri);background:#eef2ff;color:var(--ink)}
+.pool{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.chip{border:2px solid var(--line);background:#fff;border-radius:99px;padding:9px 16px;color:var(--ink)}
+.chip:hover{border-color:var(--pri)}
+.match{display:grid;gap:10px;margin-bottom:14px}
+.mrow{display:grid;grid-template-columns:1fr 190px;gap:10px;align-items:center;background:#f6f8ff;border:2px solid var(--line);border-radius:14px;padding:10px 12px}
+.mrow.right{border-color:var(--ok);background:var(--okbg)}
+.mrow.wrong{border-color:var(--bad);background:var(--badbg)}
+select{font:inherit;padding:10px;border:2px solid var(--line);border-radius:10px;min-height:44px;background:#fff;width:100%}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.hint{background:#fff9db;border:1px solid #ffe066;border-radius:12px;padding:10px 14px;margin-top:12px}
+.fb{border-radius:14px;padding:14px 16px;margin-top:14px;border:2px solid}
+.fb.ok{background:var(--okbg);border-color:var(--ok)}
+.fb.bad{background:var(--badbg);border-color:var(--bad)}
+.fb h3{margin:0 0 6px}
+.pop{animation:pop .5s}
+@keyframes pop{0%{transform:scale(.9);opacity:.2}60%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+.stars{font-size:2.6rem;letter-spacing:6px}
+.rep{width:100%;border-collapse:collapse;margin-top:10px}
+.rep th,.rep td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:.92rem;vertical-align:middle}
+.meter{background:#e9ecef;border-radius:99px;height:12px;min-width:90px;overflow:hidden}
+.meter i{display:block;height:100%}
+.stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.stat div{background:#f4f7ff;border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font-size:1.5rem;color:var(--navy)}
+.tekstext{font-size:.9rem;color:var(--mut);background:#f4f7ff;border-radius:12px;padding:10px 12px;margin:10px 0;text-align:left}
+@media (max-width:560px){.mrow{grid-template-columns:1fr}.gopts{grid-template-columns:1fr 1fr}html{font-size:16px}}
+@media print{body{background:#fff}.noprint{display:none!important}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* ---------- helpers ---------- */
+const $ = (s, el) => (el || document).querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ---------- visuals ---------- */
+function graphSVG(o) {
+  const W = o.small ? 150 : 440, H = o.small ? 120 : 290;
+  const m = o.small ? {l:14,r:12,t:12,b:14} : {l:54,r:20,t:16,b:46};
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const X = x => m.l + x / o.xmax * pw, Y = y => m.t + ph - y / o.ymax * ph;
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vis" role="img" aria-label="' + esc(o.alt || 'Distance-time graph') + '">';
+  s += '<rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+  if (!o.small) {
+    for (let x = 0; x <= o.xmax; x += o.xs) s += '<line x1="' + X(x) + '" y1="' + m.t + '" x2="' + X(x) + '" y2="' + (m.t + ph) + '" stroke="#e9ecef"/><text x="' + X(x) + '" y="' + (m.t + ph + 17) + '" text-anchor="middle" font-size="12" fill="#495057">' + x + '</text>';
+    for (let y = 0; y <= o.ymax; y += o.ys) s += '<line x1="' + m.l + '" y1="' + Y(y) + '" x2="' + (m.l + pw) + '" y2="' + Y(y) + '" stroke="#e9ecef"/><text x="' + (m.l - 8) + '" y="' + (Y(y) + 4) + '" text-anchor="end" font-size="12" fill="#495057">' + y + '</text>';
+    s += '<text x="' + (m.l + pw / 2) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#212529">' + o.xlab + '</text>';
+    s += '<text transform="translate(14 ' + (m.t + ph / 2) + ') rotate(-90)" text-anchor="middle" font-size="13" font-weight="700" fill="#212529">' + o.ylab + '</text>';
+  }
+  s += '<line x1="' + m.l + '" y1="' + m.t + '" x2="' + m.l + '" y2="' + (m.t + ph) + '" stroke="#343a40" stroke-width="2"/>';
+  s += '<line x1="' + m.l + '" y1="' + (m.t + ph) + '" x2="' + (m.l + pw) + '" y2="' + (m.t + ph) + '" stroke="#343a40" stroke-width="2"/>';
+  o.series.forEach(se => {
+    s += '<polyline points="' + se.pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ') + '" fill="none" stroke="' + se.color + '" stroke-width="' + (o.small ? 3.5 : 3.5) + '" stroke-linejoin="round" stroke-linecap="round"/>';
+    if (!o.small) {
+      se.pts.forEach(p => { s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4" fill="' + se.color + '"/>'; });
+      if (se.name) { const l = se.pts[se.pts.length - 1]; s += '<text x="' + (X(l[0]) - 8) + '" y="' + (Y(l[1]) - 9) + '" text-anchor="end" font-size="14" font-weight="800" fill="' + se.color + '">' + se.name + '</text>'; }
+    }
+  });
+  return s + '</svg>';
+}
+
+function forceSVG(o) {
+  const W = 440, H = 270, bx = 190, by = 105, bw = 60, bh = 60, cx = bx + bw / 2, cy = by + bh / 2;
+  const arrow = (x1, y1, x2, y2) => '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#e8590c" stroke-width="5" marker-end="url(#ah)"/>';
+  const txt = (x, y, t, a) => '<text x="' + x + '" y="' + y + '" text-anchor="' + a + '" font-size="14" font-weight="800" fill="#212529">' + t + '</text>';
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vis" role="img" aria-label="Force diagram of an object with arrows showing forces">';
+  s += '<defs><marker id="ah" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="10" refY="8" orient="auto"><path d="M0,1 L15,8 L0,15 z" fill="#e8590c"/></marker></defs>';
+  s += '<rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+  s += '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="8" fill="#ced4da" stroke="#495057" stroke-width="2"/>';
+  s += '<text x="' + cx + '" y="' + (cy + 5) + '" text-anchor="middle" font-size="14" fill="#212529">object</text>';
+  if (o.r) { const L = o.r[0] * 3; s += arrow(bx + bw, cy, bx + bw + L, cy) + txt(bx + bw + L + 12, cy + 5, o.r[1] + ' ' + o.r[0] + ' N', 'start'); }
+  if (o.l) { const L = o.l[0] * 3; s += arrow(bx, cy, bx - L, cy) + txt(bx - L - 12, cy + 5, o.l[1] + ' ' + o.l[0] + ' N', 'end'); }
+  if (o.u) { const L = o.u[0] * 1.4; s += arrow(cx, by, cx, by - L) + txt(cx + 16, by - L / 2 + 5, o.u[1] + ' ' + o.u[0] + ' N', 'start'); }
+  if (o.d) { const L = o.d[0] * 1.4; s += arrow(cx, by + bh, cx, by + bh + L) + txt(cx + 16, by + bh + L / 2 + 5, o.d[1] + ' ' + o.d[0] + ' N', 'start'); }
+  return s + '</svg>';
+}
+
+function layersSVG() {
+  const cx = 150, cy = 150;
+  const pt = (r, deg) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
+  const L = [ // [letter, radius for point, angle, badge y]
+    ['C', 136, -50, 40], ['A', 105, -15, 110], ['D', 58, 20, 180], ['B', 20, 55, 250]
+  ];
+  let s = '<svg viewBox="0 0 400 300" class="vis" role="img" aria-label="Cross-section of Earth with four layers labeled A, B, C and D">';
+  s += '<rect width="400" height="300" fill="#fff"/>';
+  s += '<circle cx="150" cy="150" r="141" fill="#8d6e63"/><circle cx="150" cy="150" r="132" fill="#e8590c"/><circle cx="150" cy="150" r="77" fill="#ffd43b"/><circle cx="150" cy="150" r="40" fill="#fff3bf" stroke="#f08c00" stroke-width="2"/>';
+  L.forEach(l => {
+    const p = pt(l[1], l[2]);
+    s += '<line x1="' + p[0] + '" y1="' + p[1] + '" x2="330" y2="' + l[3] + '" stroke="#343a40" stroke-width="2"/><circle cx="' + p[0] + '" cy="' + p[1] + '" r="4" fill="#212529"/>';
+    s += '<circle cx="345" cy="' + l[3] + '" r="17" fill="#fff" stroke="#343a40" stroke-width="2.5"/><text x="345" y="' + (l[3] + 6) + '" text-anchor="middle" font-size="18" font-weight="800" fill="#212529">' + l[0] + '</text>';
+  });
+  return s + '</svg>';
+}
+
+function strataSVG() {
+  const rows = [['A', 'Sandstone', '', '#f3c98b'], ['B', 'Shale', 'ammonite fossil', '#a9b6c2'], ['C', 'Limestone', '', '#e6e0cc'], ['D', 'Conglomerate', 'trilobite fossil', '#c9a27a']];
+  let s = '<svg viewBox="0 0 440 270" class="vis" role="img" aria-label="Four undisturbed rock layers labeled A at the top to D at the bottom">';
+  s += '<rect width="440" height="270" fill="#fff"/><text x="220" y="16" text-anchor="middle" font-size="13" font-weight="700" fill="#495057">Ground surface</text>';
+  rows.forEach((r, i) => {
+    const y = 24 + i * 58;
+    s += '<rect x="20" y="' + y + '" width="400" height="58" fill="' + r[3] + '" stroke="#495057" stroke-width="1.5"/>';
+    s += '<text x="36" y="' + (y + 35) + '" font-size="20" font-weight="800" fill="#212529">' + r[0] + '</text>';
+    s += '<text x="74" y="' + (y + 35) + '" font-size="15" fill="#212529">' + r[1] + '</text>';
+    if (r[2]) s += '<text x="404" y="' + (y + 35) + '" text-anchor="end" font-size="14" font-style="italic" font-weight="700" fill="#212529">' + r[2] + '</text>';
+  });
+  return s + '</svg>';
+}
+
+/* ---------- graph presets ---------- */
+const G1 = {series:[{pts:[[0,0],[4,8],[8,8],[12,20]],color:'#3b5bdb'}], xmax:12, ymax:20, xs:2, ys:4, xlab:'Time (s)', ylab:'Distance (m)', alt:'Distance-time graph of one object over 12 seconds'};
+const G2 = {series:[{pts:[[0,0],[10,40]],color:'#e8590c',name:'Runner X'},{pts:[[0,0],[10,20]],color:'#1c7ed6',name:'Runner Y'}], xmax:10, ymax:45, xs:2, ys:10, xlab:'Time (s)', ylab:'Distance (m)', alt:'Distance-time graph comparing Runner X and Runner Y'};
+const curve = f => { const a = []; for (let t = 0; t <= 10; t++) a.push([t, f(t)]); return a; };
+const small = pts => graphSVG({small:true, series:[{pts:pts, color:'#3b5bdb'}], xmax:10, ymax:10, alt:'Small distance-time graph option'});
+/* ---------- question bank ---------- */
+const ZONES = [
+{id:'z1', teks:'7.7A', grade:7, icon:'🏃', title:'Speed Track',
+ text:'calculate average speed using distance and time measurements from investigations',
+ qs:[
+  {type:'num', q:'A cyclist rides 60 meters in 12 seconds. What is the cyclist’s average speed?', ans:5, unit:'m/s', hint:'Average speed = total distance ÷ total time.', why:'60 m ÷ 12 s = 5 m/s.'},
+  {type:'num', q:'A car travels 150 kilometers in 2.5 hours. What is its average speed?', ans:60, unit:'km/h', hint:'Divide the distance by the time.', why:'150 km ÷ 2.5 h = 60 km/h.'},
+  {type:'num', q:'A runner keeps an average speed of 4 m/s for 30 seconds. How far does the runner go?', ans:120, unit:'m', hint:'Rearrange the formula: distance = speed × time.', why:'4 m/s × 30 s = 120 m.'},
+  {type:'num', q:'A snail crawls 3 meters at an average speed of 0.05 m/s. How many seconds does the trip take?', ans:60, unit:'s', hint:'Rearrange the formula: time = distance ÷ speed.', why:'3 m ÷ 0.05 m/s = 60 s.'},
+  {type:'num', q:'In an investigation, a toy car travels 2.0 m in three trials. The times are 4.0 s, 5.0 s, and 4.5 s. Use the mean (average) time to find the car’s average speed. Round to the nearest hundredth.', ans:0.44, tol:0.0045, unit:'m/s', hint:'First find the mean time: add the three times, divide by 3. Then divide 2.0 m by that time.', why:'Mean time = (4.0 + 5.0 + 4.5) ÷ 3 = 4.5 s. Speed = 2.0 m ÷ 4.5 s ≈ 0.44 m/s.'}
+ ]},
+{id:'z2', teks:'7.7C', grade:7, icon:'📈', title:'Graph Canyon',
+ text:'measure, record, and interpret an object’s motion using distance-time graphs',
+ qs:[
+  {type:'mc', vis:()=>graphSVG(G1), q:'Look at the graph. What is the object doing from 4 s to 8 s?', opts:['Staying still (at rest)','Moving at a constant speed','Speeding up','Moving backward'], ans:0, hint:'On a distance-time graph, what does a flat (horizontal) line tell you about distance?', why:'A flat line means the distance is not changing, so the object is at rest.'},
+  {type:'num', vis:()=>graphSVG(G1), q:'Use the graph. What is the object’s speed from 0 s to 4 s?', ans:2, unit:'m/s', hint:'Speed = change in distance ÷ change in time (rise ÷ run).', why:'It moved 8 m in 4 s: 8 ÷ 4 = 2 m/s.'},
+  {type:'num', vis:()=>graphSVG(G1), q:'Use the graph. What is the object’s speed from 8 s to 12 s?', ans:3, unit:'m/s', hint:'Find how far it went between 8 s and 12 s, then divide by 4 s.', why:'Distance went from 8 m to 20 m, a change of 12 m in 4 s: 12 ÷ 4 = 3 m/s.'},
+  {type:'mc', q:'Which graph shows an object moving at a constant speed?', opts:[small(curve(t=>t)), small(curve(t=>t*t/10)), small(curve(t=>10-(10-t)*(10-t)/10)), small([[0,5],[10,5]])], ans:0, hint:'Constant speed means the same distance every second.', why:'A straight, slanted line means equal distance each second. A steepening curve is speeding up, a flattening curve is slowing down, and a flat line is at rest.'},
+  {type:'mc', vis:()=>graphSVG(G2), q:'Which runner is faster?', opts:['Runner X — the line is steeper','Runner Y — the line is lower','They are the same speed because both start at 0','You can’t tell from a distance-time graph'], ans:0, hint:'Compare how far each runner goes in the same 10 seconds.', why:'Runner X went 40 m in 10 s (4 m/s); Runner Y went 20 m in 10 s (2 m/s). A steeper line means a greater speed.'},
+  {type:'mc', q:'When you record an object’s motion and graph distance vs. time, which variable normally goes on the horizontal (x) axis?', opts:['Time','Distance','Speed','Mass'], ans:0, hint:'You measure distance at set time intervals.', why:'Time goes on the x-axis and distance goes on the y-axis, so the slope of the line is the speed.'}
+ ]},
+{id:'z3', teks:'6.7A', grade:6, icon:'🧲', title:'Force Field',
+ text:'identify and explain how forces act on objects, including gravity, friction, magnetism, applied forces, and normal forces, using real-world applications',
+ qs:[
+  {type:'mc', q:'A book rests on a table. Which force from the table pushes up on the book?', opts:['Normal force','Friction','Magnetism','Applied force'], ans:0, hint:'This force is a support force that acts perpendicular to the surface.', why:'The normal force is the push of a surface on an object resting on it. Gravity pulls the book down.'},
+  {type:'match', q:'Match each real-world example to the force that best explains it.', choices:['Gravity','Friction','Magnetism','Applied force'], pairs:[['A refrigerator magnet stays stuck to the door.','Magnetism'],['A skateboard slows down on rough pavement.','Friction'],['An apple falls from a tree to the ground.','Gravity'],['You push a shopping cart down the aisle.','Applied force']], hint:'Ask: is it a push or pull from a person, a pull toward Earth, a force that resists sliding, or a force between magnets?', why:'Magnetism holds the magnet, friction slows the skateboard, gravity pulls the apple down, and your push is an applied force.'},
+  {type:'mc', q:'Why do running shoes have treads on the bottom?', opts:['To increase friction so the shoes grip the ground','To reduce gravity on the runner','To make the normal force zero','To add magnetism to the ground'], ans:0, hint:'Think about slipping on a smooth floor.', why:'Treads increase friction between the shoe and the ground, which helps you start, stop, and turn without slipping.'},
+  {type:'mc', q:'Which statement about gravity is correct?', opts:['Gravity pulls objects with mass toward each other, and Earth’s gravity pulls objects toward its center','Gravity only acts on objects that are falling','Gravity pushes objects away from Earth','Gravity only exists on Earth'], ans:0, hint:'Gravity acts on a book sitting on a table, too.', why:'Gravity is an attractive force between objects with mass. It acts on everything, even objects that are not moving.'},
+  {type:'mc', q:'A student pulls a wagon forward with a rope. The pull from the student through the rope is a(n) ______.', opts:['applied force','normal force','friction force','magnetic force'], ans:0, hint:'A push or pull exerted by a person or object is called this kind of force.', why:'A push or pull from a person is an applied force.'}
+ ]},
+{id:'z4', teks:'6.7B', grade:6, icon:'⚖️', title:'Net Force Arena',
+ text:'calculate the net force on an object in a horizontal or vertical direction using diagrams and determine if the forces are balanced or unbalanced',
+ qs:[
+  {type:'mc', vis:()=>forceSVG({r:[30,'Push'], l:[10,'Friction']}), q:'What is the net force on the object?', opts:['20 N to the right','40 N to the right','20 N to the left','0 N'], ans:0, hint:'Forces in opposite directions are subtracted. The net force points the way of the larger force.', why:'30 N − 10 N = 20 N, directed to the right. The forces are unbalanced.'},
+  {type:'mc', vis:()=>forceSVG({r:[15,'Pull'], l:[15,'Pull']}), q:'Two teams pull on an object with these forces. What is the net force?', opts:['0 N — the forces are balanced','30 N — the forces are unbalanced','15 N to the right','15 N to the left'], ans:0, hint:'Equal forces in opposite directions…', why:'15 N − 15 N = 0 N. Balanced forces do not change an object’s motion.'},
+  {type:'mc', vis:()=>forceSVG({u:[50,'Normal'], d:[50,'Gravity']}), q:'A box sits at rest on the floor. What is the net (vertical) force?', opts:['0 N — balanced, so its motion does not change','100 N upward','50 N upward — it will rise','50 N downward — it will sink'], ans:0, hint:'Compare the up arrow to the down arrow.', why:'50 N up − 50 N down = 0 N. Balanced forces mean no change in motion — the box stays at rest.'},
+  {type:'mc', vis:()=>forceSVG({u:[12,'Lift'], d:[20,'Weight']}), q:'A drone has 12 N of lift and 20 N of weight. What is the net force?', opts:['8 N downward — unbalanced','8 N upward — unbalanced','32 N downward','0 N — balanced'], ans:0, hint:'Subtract the smaller force from the larger one. Which direction is bigger?', why:'20 N − 12 N = 8 N downward. The forces are unbalanced, so the drone accelerates downward.'},
+  {type:'num', q:'Two students push a crate in the same direction with 40 N and 25 N. Friction pushes back with 15 N. What is the net force on the crate (in the direction of the pushes)?', ans:50, unit:'N', hint:'Add forces that point the same way, then subtract the force pointing the opposite way.', why:'40 N + 25 N = 65 N forward. 65 N − 15 N = 50 N forward.'},
+  {type:'mc', q:'Which situation shows balanced forces?', opts:['A car driving at a constant speed in a straight line on a level road','A ball speeding up as it falls','A soccer ball being kicked','A bike slowing down as the rider brakes'], ans:0, hint:'Balanced forces mean no change in speed or direction.', why:'Constant speed in a straight line means the net force is 0 N. The other examples show speeding up, slowing down, or changing motion.'}
+ ]},
+{id:'z5', teks:'8.7A', grade:8, icon:'🚗', title:'Second Law Speedway',
+ text:'calculate and analyze how the acceleration of an object is dependent upon the net force acting on the object and the mass of the object using Newton’s Second Law of Motion',
+ qs:[
+  {type:'num', q:'A net force of 20 N acts on a 4 kg cart. What is the cart’s acceleration?', ans:5, unit:'m/s²', hint:'Newton’s Second Law: a = F ÷ m.', why:'a = 20 N ÷ 4 kg = 5 m/s².'},
+  {type:'num', q:'A 1,500 kg car accelerates at 2 m/s². What net force acts on the car?', ans:3000, unit:'N', hint:'F = m × a.', why:'F = 1,500 kg × 2 m/s² = 3,000 N.'},
+  {type:'num', q:'A net force of 60 N gives an object an acceleration of 3 m/s². What is the object’s mass?', ans:20, unit:'kg', hint:'Rearrange: m = F ÷ a.', why:'m = 60 N ÷ 3 m/s² = 20 kg.'},
+  {type:'num', q:'A 10 kg sled is pushed with 50 N while friction pushes back with 20 N. What is the sled’s acceleration?', ans:3, unit:'m/s²', hint:'Find the NET force first, then divide by the mass.', why:'Net force = 50 N − 20 N = 30 N. a = 30 N ÷ 10 kg = 3 m/s².'},
+  {type:'mc', q:'The same net force acts on an object, but the object’s mass is doubled. What happens to its acceleration?', opts:['It is cut in half','It doubles','It stays the same','It becomes zero'], ans:0, hint:'a = F ÷ m. If m gets bigger while F stays the same…', why:'Acceleration is inversely proportional to mass. Double the mass, and the acceleration is half as much.'}
+ ]},
+{id:'z6', teks:'8.7B', grade:8, icon:'🚀', title:'Launch Pad',
+ text:'investigate and describe how Newton’s three laws of motion act simultaneously within systems such as in vehicle restraints, sports activities, amusement park rides, Earth’s tectonic activities, and rocket launches',
+ qs:[
+  {type:'mc', q:'A car stops suddenly and the passengers lurch forward. Which law best explains why?', opts:['First law — inertia keeps them moving forward','Second law only — more mass means less acceleration','Third law only — action and reaction','The law of gravity'], ans:0, hint:'Objects in motion tend to stay in motion unless a force acts on them.', why:'Passengers keep moving forward because of inertia. A seat belt provides the force that slows them (second law) by pushing back with equal force (third law) — all three laws act together.'},
+  {type:'mc', q:'At liftoff, a rocket pushes exhaust gas downward and the gas pushes the rocket upward. Which statement is correct?', opts:['Third law: the forces are equal and opposite; second law: the rocket accelerates upward because thrust is greater than its weight','Only the third law applies','First law: the rocket moves because no forces act on it','The second law cancels the third law, so the net force is zero'], ans:0, hint:'More than one law is working at once.', why:'The gas and rocket push on each other with equal and opposite forces (third law). Because the upward thrust is greater than the weight, there is a net upward force and the rocket accelerates (second law).'},
+  {type:'match', q:'Match each situation with the Newton’s law that best explains it.', choices:['First law','Second law','Third law'], pairs:[['A hockey puck keeps sliding across smooth ice.','First law'],['A kicked soccer ball speeds up more than a heavier ball kicked with the same force.','Second law'],['A swimmer pushes water backward and moves forward.','Third law']], hint:'First = inertia, Second = F = ma, Third = equal and opposite forces.', why:'The puck keeps moving by inertia (first). The lighter ball accelerates more with the same force (second). The water pushes the swimmer forward in reaction (third).'},
+  {type:'mc', q:'Along a tectonic plate boundary, two plates collide and push on each other. Which law describes the forces the two plates exert on each other?', opts:['Third law — the forces are equal in size and opposite in direction','First law — the plates have no inertia','Second law — the plates have no mass','None; plates do not exert forces'], ans:0, hint:'Each plate pushes on the other.', why:'When one plate pushes on another, the second plate pushes back with an equal and opposite force (third law).'},
+  {type:'mc', q:'A bat hits a baseball. The force on the ball equals the force on the bat, but the ball accelerates much more. Why?', opts:['The ball has much less mass, so the same force causes a greater acceleration','The bat pushes with a bigger force than the ball does','The third law does not apply in sports','The ball has more inertia than the bat'], ans:0, hint:'Use a = F ÷ m for each object.', why:'The forces are equal and opposite (third law). But a = F ÷ m (second law), and the ball has far less mass, so it accelerates far more.'},
+  {type:'mc', q:'In an amusement park, a 200 kg bumper car crashes head-on into a 100 kg bumper car. Which statement is true?', opts:['Both cars feel equal-sized forces, and the 100 kg car has the greater acceleration','The 200 kg car feels a larger force and accelerates more','The 100 kg car feels a larger force and accelerates less','Only the 200 kg car feels a force'], ans:0, hint:'Third law gives the forces. Second law gives the accelerations.', why:'The forces are equal and opposite (third law). With the same force, the car with less mass accelerates more (second law).'}
+ ]},
+{id:'z7', teks:'6.8B', grade:6, icon:'🎢', title:'Energy Park',
+ text:'describe how energy is conserved through transfers and transformations in systems such as electrical circuits, food webs, amusement park rides, or photosynthesis',
+ qs:[
+  {type:'mc', q:'A battery powers a light bulb in a simple circuit. Which energy transformation describes what happens?', opts:['Chemical energy → electrical energy → light (and thermal) energy','Light energy → electrical energy → chemical energy','Thermal energy → kinetic energy → light energy','Electrical energy → chemical energy → sound energy'], ans:0, hint:'Where does the battery store its energy? What does the bulb give off?', why:'A battery stores chemical energy, the circuit carries electrical energy, and the bulb transforms it into light and some thermal energy.'},
+  {type:'mc', q:'A roller coaster car rolls down the first big hill. Which energy transformation is happening?', opts:['Gravitational potential energy → kinetic energy (and a little thermal energy from friction)','Kinetic energy → gravitational potential energy','Chemical energy → elastic potential energy','Thermal energy → gravitational potential energy'], ans:0, hint:'At the top the car is high up. At the bottom it is moving fast.', why:'As the car drops, its stored gravitational potential energy changes to kinetic energy. Friction transforms a little into thermal energy.'},
+  {type:'order', q:'Put this food-web energy pathway in order, starting with the original source.', items:['Sunlight (light energy)','Grass uses light to make glucose (chemical energy) in photosynthesis','A rabbit eats the grass','A fox eats the rabbit'], hint:'Photosynthesis is how the energy first enters the food web.', why:'Light energy from the Sun is transformed into chemical energy by producers, then transferred to consumers when they eat.'},
+  {type:'mc', q:'A coaster car has 10,000 J of energy at the top of the first hill. At the bottom it has 9,200 J of kinetic energy. What happened to the other 800 J?', opts:['It was transformed into thermal energy and sound by friction and air resistance','It was destroyed','It disappeared into the track','It turned into extra mass'], ans:0, hint:'Energy cannot be created or destroyed.', why:'Energy is conserved. The “missing” 800 J was transformed into thermal energy and sound. The total is still 10,000 J.'},
+  {type:'mc', q:'A hawk eats a snake that ate a mouse that ate seeds. Which statement best describes the energy in this food web?', opts:['The energy originally came from the Sun; at each step much of it is transformed into thermal energy, so less is available to the next level','The energy came from the soil and is completely passed along at every step','Energy is created each time an animal eats','The hawk gives energy back to the Sun'], ans:0, hint:'Where does the producer get its energy?', why:'Producers capture the Sun’s energy. At each transfer, organisms use some for life processes and give off thermal energy, so energy is conserved but less remains for the next level.'}
+ ]},
+{id:'z8', teks:'6.10B', grade:6, icon:'🌍', title:'Core Expedition',
+ text:'model and describe the layers of Earth, including the inner core, outer core, mantle, and crust',
+ qs:[
+  {type:'mc', vis:()=>layersSVG(), q:'Which letter marks the layer that is liquid and made mostly of iron and nickel?', opts:['A','B','C','D'], ans:3, hint:'The liquid layer surrounds the solid center of Earth.', why:'Layer D is the outer core — liquid iron and nickel. Its motion helps create Earth’s magnetic field.'},
+  {type:'mc', vis:()=>layersSVG(), q:'Which letter marks the hottest layer, which stays solid because of extreme pressure?', opts:['A','B','C','D'], ans:1, hint:'It is at the very center.', why:'Layer B is the inner core — solid iron and nickel, about as hot as the Sun’s surface, but kept solid by enormous pressure.'},
+  {type:'order', q:'Put Earth’s layers in order from the surface to the center.', items:['Crust','Mantle','Outer core','Inner core'], hint:'Start with the layer we live on and go deeper.', why:'From the outside in: crust → mantle → outer core → inner core.'},
+  {type:'mc', q:'Which layer of Earth is the thickest?', opts:['Mantle','Crust','Outer core','Inner core'], ans:0, hint:'It makes up most of Earth’s volume.', why:'The mantle is about 2,900 km thick and makes up most of Earth’s volume. The crust is the thinnest layer.'},
+  {type:'mc', q:'Which statement about the mantle is correct?', opts:['It is hot, mostly solid rock that flows very slowly','It is a thin layer of liquid water','It is made of liquid iron and nickel','It is the thinnest, coolest layer'], ans:0, hint:'Think of very thick, slow-moving material.', why:'The mantle is hot, mostly solid rock that can flow very slowly over long periods of time — this slow flow (convection) moves tectonic plates.'}
+ ]},
+{id:'z9', teks:'7.10A', grade:7, icon:'🦴', title:'Fossil Dig',
+ text:'describe the evidence that supports that Earth has changed over time, including fossil evidence, plate tectonics, and superposition',
+ qs:[
+  {type:'mc', vis:()=>strataSVG(), q:'These rock layers have not been folded or flipped. Which layer is the oldest?', opts:['Layer A','Layer B','Layer C','Layer D'], ans:3, hint:'Superposition: in undisturbed layers, older layers are under younger ones.', why:'By the principle of superposition, the bottom layer (D) was deposited first, so it is the oldest.'},
+  {type:'mc', vis:()=>strataSVG(), q:'Layer B contains an ammonite fossil. Layer D contains a trilobite fossil. Which organism lived earlier?', opts:['The trilobite — it is in the older, lower layer','The ammonite — it is in a higher layer','They lived at the same time','You cannot tell from the layers'], ans:0, hint:'Use what you learned about which layer is oldest.', why:'Fossils in lower layers lived earlier. This is how fossils help scientists order events in Earth’s history.'},
+  {type:'mc', q:'Fossils of the same freshwater reptile, Mesosaurus, are found in South America and in Africa, which are separated by an ocean. What does this best support?', opts:['The continents were once joined and have moved apart (plate tectonics)','Mesosaurus could swim across the Atlantic Ocean easily','Both continents have always had the same climate','Fossils can move on their own'], ans:0, hint:'A freshwater reptile could not cross a salty ocean.', why:'Matching fossils on separated continents are evidence that the land was once connected and that plates have moved over time.'},
+  {type:'mc', q:'Scientists find seashell fossils in rock near the top of a tall mountain. What does this evidence suggest?', opts:['That rock formed under the sea and was later uplifted by Earth’s changes','Seashells grow on mountains','The mountain was always at the top of the ocean','The shells were dropped by tourists'], ans:0, hint:'Where do shelled sea animals live?', why:'Marine fossils high on a mountain show the rock once formed underwater and was later lifted up by tectonic processes. Earth’s surface has changed.'},
+  {type:'match', q:'Match each statement to the type of evidence it describes.', choices:['Fossil evidence','Plate tectonics','Superposition'], pairs:[['The oldest rock layers are found at the bottom of an undisturbed sequence.','Superposition'],['GPS measurements show continents slowly moving, and earthquakes and volcanoes line up along plate edges.','Plate tectonics'],['Preserved remains of ancient organisms show life forms that no longer exist.','Fossil evidence']], hint:'Which statement is about layers? About moving plates? About preserved remains?', why:'Superposition is about rock layer order, plate tectonics is about moving plates of Earth’s crust, and fossils are preserved remains of past life.'},
+  {type:'mc', q:'Why are fossils most often found in sedimentary rock?', opts:['Sediments gently bury organisms in layers, which can preserve them','Sedimentary rock forms from lava, which preserves organisms perfectly','Sedimentary rock is the only rock that contains minerals','Fossils form only in metamorphic rock'], ans:0, hint:'Think about how sedimentary rock forms.', why:'Sedimentary rock forms when layers of sediment slowly pile up. This gentle burial can preserve plants and animals. Heat and pressure from igneous or metamorphic processes usually destroy them.'}
+ ]},
+{id:'z10', teks:'7.10B', grade:7, icon:'🌋', title:'Tectonic Rift',
+ text:'describe how plate tectonics causes ocean basin formation, earthquakes, mountain building, and volcanic eruptions, including supervolcanoes and hot spots',
+ qs:[
+  {type:'mc', q:'At a mid-ocean ridge, two plates move apart. What forms there?', opts:['New ocean floor, which widens the ocean basin','A tall mountain range','A deep earthquake zone with no new crust','A hot spot island chain'], ans:0, hint:'Magma rises into the gap between the plates.', why:'At a divergent boundary, magma rises and cools into new ocean floor (seafloor spreading), widening the ocean basin.'},
+  {type:'mc', q:'The Himalayas formed when the Indian plate collided with the Eurasian plate. What kind of boundary is this, and what resulted?', opts:['Convergent — the collision crumpled and lifted crust into mountains','Divergent — the plates pulled apart to make mountains','Transform — the plates slid past and made mountains','A hot spot — magma pushed up a mountain chain'], ans:0, hint:'The plates are moving toward each other.', why:'When two continental plates collide at a convergent boundary, neither sinks easily, so the crust crumples and is pushed upward — mountain building.'},
+  {type:'mc', q:'Along the San Andreas Fault in California, two plates slide past each other. This kind of boundary most often produces:', opts:['Earthquakes','Mid-ocean ridges','Large volcanic eruptions','New mountain ranges from collisions'], ans:0, hint:'The plates get stuck and then suddenly slip.', why:'At a transform boundary, plates grind past each other. Stress builds up and is released suddenly as earthquakes.'},
+  {type:'mc', q:'The Hawaiian Islands form a chain of volcanoes far from any plate boundary. Which explanation fits best?', opts:['A hot spot — a stationary plume of hot mantle rock melts through the plate as the plate moves over it','Two plates collided at the islands','The islands are the top of a mid-ocean ridge','Earthquakes pushed the islands up'], ans:0, hint:'The plate moves over a source of heat that stays in place.', why:'A hot spot stays in one place while the plate drifts over it. Each time a new volcano forms, the older ones are carried away, leaving a chain.'},
+  {type:'mc', q:'What is a supervolcano?', opts:['A volcano capable of an extremely large eruption — far bigger than ordinary eruptions — that could affect Earth’s climate','Any volcano taller than Mount Everest','A volcano that erupts every day','An underwater volcano at a ridge'], ans:0, hint:'The “super” has to do with the size of the eruption.', why:'Supervolcanoes, like the one beneath Yellowstone (a hot spot), can have enormous eruptions that spread ash widely and can change climate.'},
+  {type:'mc', q:'What mainly drives the slow movement of tectonic plates?', opts:['Convection currents in the mantle','Ocean tides','Wind and weather','Earth’s magnetic field'], ans:0, hint:'Think about heat moving through the mantle.', why:'Heat from Earth’s interior drives slow convection currents in the mantle, which help move the plates a few centimeters per year.'}
+ ]}
+];
+/* ---------- state ---------- */
+const SAVE_KEY = 'sciReviewQuest.v1';
+const app = document.getElementById('app');
+function fresh() { return {name:'', score:0, streak:0, best:0, zones:{}, teks:{}, missed:[], ms:0, last:0, run:null, rematchDone:false}; }
+function load() { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+let S = load() || fresh();
+let run = S.run || null;
+function tick() { const n = Date.now(); if (S.last) S.ms += Math.min(n - S.last, 180000); S.last = n; }
+function screen(html) { app.innerHTML = html; window.scrollTo(0, 0); }
+const totalQs = () => ZONES.reduce((a, z) => a + z.qs.length, 0);
+const stars = (c, t) => { const p = c / t; return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1; };
+const starStr = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+
+function hud(extra) {
+  return '<div class="hud noprint"><div class="t">🔬 Science Review Quest</div><div><span class="pill">⭐ ' + S.score + '</span> <span class="pill">🔥 ' + S.streak + '</span>' + (extra || '') + '</div></div>';
+}
+
+/* ---------- title ---------- */
+function showTitle() {
+  run = null;
+  const started = Object.keys(S.zones).length > 0 || S.run;
+  screen('<div class="card hero pop"><div class="big">🧪🚀🌋</div><h1>Science Review Quest</h1>' +
+    '<p class="sub">TEKS review for grades 6–8 · about 1 hour · 10 zones</p>' +
+    '<div class="rules"><div>🎯 Answer questions in each zone to earn points and stars.</div><div>🔥 Back-to-back correct answers build a streak bonus.</div><div>💡 Hints help, but cost 25 points.</div><div>🔁 Missed questions return in the final Rematch Arena.</div></div>' +
+    (S.name ? '<p>Welcome back, <b>' + esc(S.name) + '</b>!</p>' : '<p><label for="nm"><b>Your name</b></label><br><input id="nm" type="text" maxlength="24" placeholder="First name and last initial" autocomplete="off"></p>') +
+    '<div class="row"><button class="btn primary" id="go">' + (started ? 'Continue Quest ▶' : 'Start Quest ▶') + '</button>' + (started ? '<button class="btn warn" id="reset">Start over</button>' : '') + '</div></div>');
+  $('#go').onclick = () => {
+    if (!S.name) { const v = ($('#nm').value || '').trim(); if (!v) { $('#nm').focus(); $('#nm').style.borderColor = '#e03131'; return; } S.name = v; }
+    S.last = Date.now(); save(); S.run ? resumeRun() : showHub();
+  };
+  const r = $('#reset');
+  if (r) r.onclick = () => { if (confirm('Erase all your progress and start over?')) { S = fresh(); save(); showTitle(); } };
+}
+
+/* ---------- hub ---------- */
+function showHub() {
+  run = null;
+  const done = ZONES.filter(z => S.zones[z.id]).length, all = done === ZONES.length;
+  const pct = Math.round(done / ZONES.length * 100);
+  let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Complete all 10 zones to unlock the Rematch Arena. Pick a zone to begin.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete</div></div>';
+  if (S.run) h += '<div class="card" style="border-color:#ffc078"><b>⏸ You paused in the middle of a round.</b><div class="actions"><button class="btn primary" id="resume">Resume ▶</button></div></div>';
+  h += '<div class="map">';
+  ZONES.forEach((z, i) => {
+    const r = S.zones[z.id];
+    h += '<button class="zone ' + (r ? 'done' : '') + '" data-zi="' + i + '"><div class="zi">' + z.icon + '</div><div class="zt">' + z.title + '</div><div class="zk">TEKS ' + z.teks + ' · Grade ' + z.grade + '</div><div class="zs">' + (r ? starStr(stars(r.c, r.t)) + ' ' + r.c + '/' + r.t : 'Not started') + '</div></button>';
+  });
+  const m = S.missed.length;
+  h += '<button class="zone boss ' + (all ? '' : 'locked') + '" id="boss"><div class="zi">🏆</div><div class="zt">Rematch Arena</div><div class="zk">Final round</div><div class="zs">' + (!all ? '🔒 Finish all zones' : m ? m + ' to redo' : 'Perfect! Nothing to redo') + '</div></button>';
+  h += '</div><div class="actions noprint" style="justify-content:center;margin-top:18px"><button class="btn" id="rep">📋 My report card</button></div>';
+  screen(h);
+  document.querySelectorAll('.zone[data-zi]').forEach(b => b.onclick = () => { if (S.run) return resumeRun(); showIntro(+b.dataset.zi); });
+  $('#boss').onclick = () => { if (!all) return; if (S.run) return resumeRun(); if (!m) return showReport(); startRun('rematch', shuffle(S.missed.map(x => x.slice()))); };
+  $('#rep').onclick = showReport;
+  const rs = $('#resume'); if (rs) rs.onclick = resumeRun;
+}
+
+function showIntro(zi) {
+  const z = ZONES[zi], r = S.zones[z.id];
+  screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>' + z.title + '</h1><span class="badge">TEKS ' + z.teks + ' · Grade ' + z.grade + '</span>' +
+    '<div class="tekstext"><b>Standard:</b> The student is expected to ' + z.text + '.</div><p class="sub">' + z.qs.length + ' questions</p>' +
+    (r ? '<p>You already finished this zone with ' + starStr(stars(r.c, r.t)) + '. You can replay it for practice (no points).</p>' : '') +
+    '<div class="row"><button class="btn" id="back">← Map</button><button class="btn primary" id="start">' + (r ? 'Practice again' : 'Start zone ▶') + '</button></div></div>');
+  $('#back').onclick = showHub;
+  $('#start').onclick = () => startRun(r ? 'practice' : 'zone', z.qs.map((_, qi) => [zi, qi]));
+}
+
+/* ---------- run control ---------- */
+function startRun(mode, items) {
+  S.run = {mode: mode, items: items, i: 0, c: 0, pts: 0};
+  run = S.run; run.cur = 0; run.answered = false; run.hint = false;
+  tick(); save(); showQ();
+}
+function resumeRun() { run = S.run; run.answered = false; run.hint = false; showQ(); }
+
+function showQ() {
+  tick();
+  run.cur = run.i; run.answered = false; run.hint = false;
+  const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]];
+  const label = run.mode === 'rematch' ? '🏆 Rematch Arena' : z.icon + ' ' + z.title + (run.mode === 'practice' ? ' (practice)' : '');
+  screen(hud() + '<div class="card"><div class="small"><b>' + label + '</b> · Question ' + (run.cur + 1) + ' of ' + run.items.length + '</div>' +
+    '<div class="bar"><i style="width:' + Math.round(run.cur / run.items.length * 100) + '%"></i></div>' +
+    '<span class="badge">TEKS ' + z.teks + '</span><h2 class="qtext">' + q.q + '</h2>' + (q.vis ? q.vis() : '') +
+    '<div id="ans"></div><div class="actions" id="acts"><button class="btn warn" id="hintBtn">💡 Hint (−25 pts)</button><button class="btn" id="pause">⏸ Save &amp; exit</button></div>' +
+    '<div id="hint" class="hint" hidden></div><div id="fb"></div></div>');
+  $('#hintBtn').onclick = () => { if (run.answered) return; run.hint = true; const h = $('#hint'); h.hidden = false; h.innerHTML = '💡 ' + q.hint; $('#hintBtn').disabled = true; };
+  $('#pause').onclick = () => { save(); showHub(); };
+  const ans = $('#ans');
+  if (q.type === 'mc') buildMC(q, ans);
+  else if (q.type === 'num') buildNum(q, ans);
+  else if (q.type === 'order') buildOrder(q, ans);
+  else if (q.type === 'match') buildMatch(q, ans);
+}
+
+/* ---------- question types ---------- */
+function buildMC(q, ans) {
+  const perm = shuffle(q.opts.map((_, i) => i));
+  const gr = q.opts.some(o => o.indexOf('<svg') === 0);
+  ans.innerHTML = '<div class="opts ' + (gr ? 'gopts' : '') + '">' + perm.map((oi, k) => '<button class="opt" data-oi="' + oi + '"><span class="key">' + (k + 1) + '</span><span class="otxt">' + q.opts[oi] + '</span></button>').join('') + '</div>';
+  ans.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    if (run.answered) return;
+    const oi = +b.dataset.oi, ok = oi === q.ans;
+    ans.querySelectorAll('.opt').forEach(x => { x.disabled = true; if (+x.dataset.oi === q.ans) x.classList.add('right'); });
+    if (!ok) b.classList.add('wrong');
+    resolve(ok, gr ? 'The highlighted graph is the correct one.' : 'Correct answer: <b>' + q.opts[q.ans] + '</b>');
+  });
+}
+
+function buildNum(q, ans) {
+  ans.innerHTML = '<div class="numrow"><input id="num" type="text" inputmode="decimal" autocomplete="off" aria-label="Your answer" placeholder="Type a number"><span class="unit">' + q.unit + '</span><button class="btn primary" id="chk">Check</button></div><div class="err" id="err"></div>';
+  const inp = $('#num'); inp.focus();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') $('#chk').click(); });
+  $('#chk').onclick = () => {
+    if (run.answered) return;
+    const v = parseFloat(inp.value.replace(/,/g, '').trim());
+    if (isNaN(v)) { $('#err').textContent = 'Please type a number first.'; return; }
+    const ok = Math.abs(v - q.ans) <= (q.tol !== undefined ? q.tol : 0.01);
+    inp.disabled = true; $('#chk').disabled = true;
+    resolve(ok, 'Correct answer: <b>' + q.ans + ' ' + q.unit + '</b>' + (ok ? '' : ' (you typed ' + esc(inp.value) + ')'));
+  };
+}
+
+function buildOrder(q, ans) {
+  const pool = shuffle(q.items.map((_, i) => i)); let picked = [];
+  function draw() {
+    const left = q.items.length - picked.length;
+    ans.innerHTML = '<p class="small">Tap the steps in order, first to last. Tap a placed step to take it back.</p><div class="slots">' +
+      picked.map((oi, k) => '<button class="slot filled" data-k="' + k + '"><b>' + (k + 1) + '.</b> ' + q.items[oi] + '</button>').join('') +
+      Array.from({length: left}, (_, k) => '<div class="slot">' + (picked.length + k + 1) + '.</div>').join('') + '</div>' +
+      '<div class="pool">' + pool.filter(oi => picked.indexOf(oi) < 0).map(oi => '<button class="chip" data-oi="' + oi + '">' + q.items[oi] + '</button>').join('') + '</div>' +
+      '<button class="btn primary" id="chk"' + (left ? ' disabled' : '') + '>Check order</button>';
+    ans.querySelectorAll('.chip').forEach(b => b.onclick = () => { picked.push(+b.dataset.oi); draw(); });
+    ans.querySelectorAll('.slot.filled').forEach(b => b.onclick = () => { picked.splice(+b.dataset.k, 1); draw(); });
+    $('#chk').onclick = () => {
+      if (run.answered) return;
+      const ok = picked.every((oi, k) => oi === k);
+      ans.querySelectorAll('button').forEach(x => x.disabled = true);
+      resolve(ok, 'Correct order: <ol>' + q.items.map(t => '<li>' + t + '</li>').join('') + '</ol>');
+    };
+  }
+  draw();
+}
+
+function buildMatch(q, ans) {
+  ans.innerHTML = '<div class="match">' + q.pairs.map((p, i) => '<div class="mrow" data-i="' + i + '"><div>' + p[0] + '</div><select aria-label="Answer ' + (i + 1) + '"><option value="">Choose…</option>' + q.choices.map(c => '<option>' + c + '</option>').join('') + '</select></div>').join('') + '</div><button class="btn primary" id="chk">Check answers</button><div class="err" id="err"></div>';
+  $('#chk').onclick = () => {
+    if (run.answered) return;
+    const sels = Array.from(ans.querySelectorAll('select'));
+    if (sels.some(s => !s.value)) { $('#err').textContent = 'Choose an answer for every row.'; return; }
+    let ok = true;
+    sels.forEach((s, i) => { const good = s.value === q.pairs[i][1]; if (!good) ok = false; s.disabled = true; s.closest('.mrow').classList.add(good ? 'right' : 'wrong'); });
+    $('#chk').disabled = true;
+    resolve(ok, ok ? '' : 'Correct matches: <ul>' + q.pairs.map(p => '<li>' + p[0] + ' → <b>' + p[1] + '</b></li>').join('') + '</ul>');
+  };
+}
+
+/* ---------- scoring & feedback ---------- */
+function resolve(ok, detail) {
+  if (run.answered) return;
+  run.answered = true; tick();
+  const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]];
+  let gain = 0, note = '';
+  if (run.mode === 'zone') {
+    const t = S.teks[z.teks] || (S.teks[z.teks] = {c:0, t:0, r:0}); t.t++;
+    if (ok) { t.c++; S.streak++; S.best = Math.max(S.best, S.streak); const bonus = Math.min(S.streak - 1, 5) * 20; gain = (run.hint ? 75 : 100) + bonus; run.c++; note = bonus ? ' (includes +' + bonus + ' streak bonus)' : ''; }
+    else { S.streak = 0; if (!S.missed.some(m => m[0] === it[0] && m[1] === it[1])) S.missed.push([it[0], it[1]]); }
+  } else if (run.mode === 'rematch') {
+    if (ok) { gain = 50; S.missed = S.missed.filter(m => !(m[0] === it[0] && m[1] === it[1])); const t = S.teks[z.teks]; if (t) t.r++; run.c++; S.streak++; S.best = Math.max(S.best, S.streak); }
+    else S.streak = 0;
+  } else { if (ok) run.c++; }
+  S.score += gain; run.pts += gain;
+  run.i = run.cur + 1; save();
+  const last = run.i >= run.items.length;
+  const fb = $('#fb');
+  fb.innerHTML = '<div class="fb pop ' + (ok ? 'ok' : 'bad') + '"><h3>' + (ok ? '✅ Correct!' + (gain ? ' +' + gain + ' pts' : '') : '❌ Not quite') + '</h3>' + (gain && note ? '<div class="small">' + note + '</div>' : '') +
+    (detail ? '<div>' + detail + '</div>' : '') + '<p style="margin:8px 0 0"><b>Why:</b> ' + q.why + '</p>' +
+    (!ok && run.mode === 'zone' ? '<div class="small" style="margin-top:6px">This question will come back in the Rematch Arena.</div>' : '') +
+    '<div class="actions"><button class="btn primary" id="nextBtn">' + (last ? 'Finish ▶' : 'Next ▶') + '</button></div></div>';
+  $('#hintBtn').disabled = true;
+  const nb = $('#nextBtn'); nb.focus();
+  nb.onclick = () => { last ? endRun() : showQ(); };
+  document.querySelector('.hud .pill').textContent = '⭐ ' + S.score;
+}
+
+function endRun() {
+  const r = run; run = null; S.run = null; tick();
+  if (r.mode === 'zone') {
+    const z = ZONES[r.items[0][0]]; S.zones[z.id] = {c:r.c, t:r.items.length, pts:r.pts}; save();
+    const n = stars(r.c, r.items.length), allDone = ZONES.every(x => S.zones[x.id]);
+    screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>Zone complete!</h1><div class="stars" style="color:#f59f00">' + starStr(n) + '</div>' +
+      '<p><b>' + r.c + ' of ' + r.items.length + '</b> correct · +' + r.pts + ' points</p>' +
+      (r.c < r.items.length ? '<p class="sub">Missed questions will return in the Rematch Arena.</p>' : '<p class="sub">Perfect zone! 🎉</p>') +
+      (allDone ? '<p><b>🏆 All zones done — the Rematch Arena is unlocked!</b></p>' : '') +
+      '<div class="row"><button class="btn primary" id="hub">Back to the map ▶</button></div></div>');
+    $('#hub').onclick = showHub;
+  } else if (r.mode === 'rematch') {
+    S.rematchDone = true; save();
+    screen(hud() + '<div class="card hero pop"><div class="big">🏆</div><h1>Rematch complete!</h1><p><b>' + r.c + ' of ' + r.items.length + '</b> recovered · +' + r.pts + ' points</p>' +
+      (S.missed.length ? '<p class="sub">' + S.missed.length + ' still to master. You can run the Rematch Arena again.</p>' : '<p class="sub">You got every question right at least once. Outstanding!</p>') +
+      '<div class="row"><button class="btn" id="hub">Back to the map</button><button class="btn primary" id="rep">See my report card ▶</button></div></div>');
+    $('#hub').onclick = showHub; $('#rep').onclick = showReport;
+  } else { save(); showHub(); }
+}
+
+/* ---------- report ---------- */
+function showReport() {
+  run = null; tick(); save();
+  const rows = ZONES.map(z => ({z: z, t: S.teks[z.teks]})).filter(x => x.t && x.t.t);
+  const C = rows.reduce((a, x) => a + x.t.c, 0), T = rows.reduce((a, x) => a + x.t.t, 0);
+  const acc = T ? Math.round(C / T * 100) : 0, allDone = ZONES.every(z => S.zones[z.id]);
+  const rank = !allDone ? 'Quest in progress 🧭' : acc >= 95 ? 'Nobel Prize Contender 🏆' : acc >= 85 ? 'Lead Scientist 🔬' : acc >= 70 ? 'Research Scientist 🧪' : acc >= 55 ? 'Lab Technician 🥼' : 'Rookie Researcher 🌱';
+  const mins = Math.max(1, Math.round(S.ms / 60000));
+  const status = p => p >= 80 ? ['Mastered ✅', '#2f9e44'] : p >= 60 ? ['Almost there 🟡', '#f59f00'] : ['Review again 🔴', '#e03131'];
+  let h = hud() + '<div class="card"><h2>📋 Report Card — ' + esc(S.name || 'Scientist') + '</h2><p class="sub">' + rank + '</p>' +
+    '<div class="stat"><div><b>' + S.score + '</b>points</div><div><b>' + acc + '%</b>first-try accuracy</div><div><b>' + S.best + '</b>best streak</div><div><b>' + mins + ' min</b>play time</div></div>' +
+    '<table class="rep"><tr><th>TEKS</th><th>First try</th><th></th><th>After rematch</th><th>Status</th></tr>';
+  rows.forEach(x => {
+    const p = Math.round(x.t.c / x.t.t * 100), fp = Math.round(Math.min(x.t.c + x.t.r, x.t.t) / x.t.t * 100), s = status(fp);
+    h += '<tr><td><b>' + x.z.teks + '</b></td><td>' + x.t.c + '/' + x.t.t + ' (' + p + '%)</td><td><div class="meter"><i style="width:' + p + '%;background:' + status(p)[1] + '"></i></div></td><td>' + fp + '%</td><td style="color:' + s[1] + ';font-weight:700">' + s[0] + '</td></tr>';
+  });
+  h += '</table>' + (rows.length ? '' : '<p class="sub">Play a zone to see results here.</p>') + '<div class="actions noprint"><button class="btn" id="hub">← Map</button><button class="btn primary" id="print">🖨 Print / Save as PDF</button></div></div>';
+  screen(h);
+  $('#hub').onclick = showHub; $('#print').onclick = () => window.print();
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if (!run) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT') return;
+  if (!run.answered && e.key >= '1' && e.key <= '9') { const b = document.querySelectorAll('.opt')[+e.key - 1]; if (b) b.click(); }
+  else if (run.answered && e.key === 'Enter' && tag !== 'BUTTON') { const n = $('#nextBtn'); if (n) n.click(); }
+});
+
+showTitle();
+</script>
+</body>
+</html>
