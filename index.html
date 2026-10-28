@@ -319,6 +319,8 @@ function stopLab() { if (labRAF) { cancelAnimationFrame(labRAF); labRAF = 0; } i
 function tick() { const n = Date.now(); if (S.last) S.ms += Math.min(n - S.last, 180000); S.last = n; }
 function screen(html) { stopLab(); app.innerHTML = html; window.scrollTo(0, 0); }
 const stars = (c, t) => { const p = c / t; return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1; };
+const PASS_PCT = 70;
+const passed = r => !!r && r.c * 100 >= r.t * PASS_PCT;
 const starStr = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 
 /* ---------- levels, badges, power-ups ---------- */
@@ -376,7 +378,7 @@ function showTitle() {
   const started = Object.keys(S.zones).length > 0 || S.run;
   screen('<div class="card hero pop"><div class="big">🧪🚀🌋</div><h1>Science Review Quest</h1>' +
     '<p class="sub">TEKS review for grades 6–8 · about 1 hour · 10 zones, each with its own reward game · 2 lab stations</p>' +
-    '<div class="rules"><div>🎯 Answer questions in each zone to earn points and stars.</div><div>🔥 Back-to-back correct answers build a streak bonus and earn power-ups.</div><div>💡 Hints help, but cost 25 points.</div><div>🔁 Missed questions return in the final Rematch Arena.</div></div>' +
+    '<div class="rules"><div>🎯 Answer questions in each zone to earn points and stars.</div><div>🔥 Back-to-back correct answers build a streak bonus and earn power-ups.</div><div>💡 Hints help, but cost 25 points.</div><div>🔁 Missed questions return in the final Rematch Arena.</div><div>🎮 Score 70% or higher in a zone to unlock its reward game. Under 70%? Redo the zone for another chance!</div></div>' +
     (S.name ? '<p style="font-size:2.4rem;margin:6px 0">' + S.av + '</p><p>Welcome back, <b>' + esc(S.name) + '</b>!</p>' :
       '<p><b>Pick your explorer</b></p><div class="avs">' + AVS.map(a => '<button class="avb ' + (a === pickAv ? 'sel' : '') + '" data-a="' + a + '" aria-label="Choose avatar ' + a + '">' + a + '</button>').join('') + '</div>' +
       '<p><label for="nm"><b>Your name</b></label><br><input id="nm" type="text" maxlength="24" placeholder="First name and last initial" autocomplete="off"></p>') +
@@ -393,15 +395,15 @@ function showTitle() {
 /* ---------- hub ---------- */
 function showHub() {
   run = null;
-  const done = ZONES.filter(z => S.zones[z.id]).length, all = done === ZONES.length;
+  const done = ZONES.filter(z => passed(S.zones[z.id])).length, all = done === ZONES.length;
   const pct = Math.round(done / ZONES.length * 100);
-  let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Complete all 10 zones to unlock the Rematch Arena. Lab stations are optional bonus missions.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete · Power-ups: ' + Object.keys(PWN).map(k => PWN[k][0] + '×' + S.pw[k]).join(' ') + '</div></div>';
+  let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Score 70% or higher in all 10 zones to unlock the Rematch Arena. Hit 70% in a zone to earn its reward game. Lab stations are optional bonus missions.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete · Power-ups: ' + Object.keys(PWN).map(k => PWN[k][0] + '×' + S.pw[k]).join(' ') + '</div></div>';
   if (S.run) h += '<div class="card" style="border-color:#ffc078"><b>⏸ You paused in the middle of a round.</b><div class="actions"><button class="btn primary" id="resume">Resume ▶</button></div></div>';
   if (S.rw) h += '<div class="card" style="border-color:#74c0fc"><b>🎮 A reward game is waiting for you!</b><div class="actions"><button class="btn primary" id="rwb">Play ▶</button></div></div>';
   h += '<div class="map">';
   ZONES.forEach((z, i) => {
     const r = S.zones[z.id];
-    h += '<button class="zone ' + (r ? 'done' : '') + '" data-zi="' + i + '"><div class="zi">' + z.icon + '</div><div class="zt">' + z.title + '</div><div class="zk">TEKS ' + z.teks + ' · Grade ' + z.grade + '</div><div class="zk">Reward: ' + MINI_INFO[GAME_FOR[i]][0] + ' ' + MINI_INFO[GAME_FOR[i]][1] + '</div><div class="zs">' + (r ? starStr(stars(r.c, r.t)) + ' ' + r.c + '/' + r.t : 'Not started') + '</div></button>';
+    h += '<button class="zone ' + (passed(r) ? 'done' : '') + '" data-zi="' + i + '"><div class="zi">' + z.icon + '</div><div class="zt">' + z.title + '</div><div class="zk">TEKS ' + z.teks + ' · Grade ' + z.grade + '</div><div class="zk">Reward: ' + MINI_INFO[GAME_FOR[i]][0] + ' ' + MINI_INFO[GAME_FOR[i]][1] + '</div><div class="zs">' + (r ? (passed(r) ? starStr(stars(r.c, r.t)) + ' ' + r.c + '/' + r.t : '🔁 Redo · ' + r.c + '/' + r.t + ' (need 70%)') : 'Not started') + '</div></button>';
   });
   const m = S.missed.length;
   h += '<button class="zone boss ' + (all ? '' : 'locked') + '" id="boss"><div class="zi">🏆</div><div class="zt">Rematch Arena</div><div class="zk">Final round</div><div class="zs">' + (!all ? '🔒 Finish all zones' : m ? m + ' to redo' : 'Perfect! Nothing to redo') + '</div></button></div>';
@@ -419,18 +421,20 @@ function showHub() {
 }
 
 function showIntro(zi) {
-  const z = ZONES[zi], r = S.zones[z.id];
+  const z = ZONES[zi], r = S.zones[z.id], ok = passed(r), redo = !!r && !ok;
+  const need = Math.ceil(z.qs.length * PASS_PCT / 100);
   screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>' + z.title + '</h1><span class="badge">TEKS ' + z.teks + ' · Grade ' + z.grade + '</span>' +
-    '<div class="tekstext"><b>Standard:</b> The student is expected to ' + z.text + '.</div><p class="sub">' + z.qs.length + ' questions</p>' +
-    (r ? '<p>You already finished this zone with ' + starStr(stars(r.c, r.t)) + '. You can replay it for practice (no points).</p>' : '') +
-    '<div class="row"><button class="btn" id="back">← Map</button><button class="btn primary" id="start">' + (r ? 'Practice again' : 'Start zone ▶') + '</button></div></div>');
+    '<div class="tekstext"><b>Standard:</b> The student is expected to ' + z.text + '.</div><p class="sub">' + z.qs.length + ' questions · get <b>' + need + '</b> or more right (70%) to earn the reward game</p>' +
+    (ok ? '<p>You already passed this zone with ' + starStr(stars(r.c, r.t)) + '. You can replay it for practice (no points).</p>' : '') +
+    (redo ? '<p style="color:#a64b00"><b>Your best so far: ' + r.c + '/' + r.t + '.</b> You need 70% to earn the reward game. Give it another shot!</p>' : '') +
+    '<div class="row"><button class="btn" id="back">← Map</button><button class="btn primary" id="start">' + (ok ? 'Practice again' : redo ? 'Redo zone ▶' : 'Start zone ▶') + '</button></div></div>');
   $('#back').onclick = showHub;
-  $('#start').onclick = () => startRun(r ? 'practice' : 'zone', z.qs.map((_, qi) => [zi, qi]));
+  $('#start').onclick = () => startRun(ok ? 'practice' : 'zone', redo ? shuffle(z.qs.map((_, qi) => [zi, qi])) : z.qs.map((_, qi) => [zi, qi]), redo);
 }
 
 /* ---------- run control ---------- */
-function startRun(mode, items) {
-  S.run = {mode: mode, items: items, i: 0, c: 0, pts: 0, shield: false};
+function startRun(mode, items, retry) {
+  S.run = {mode: mode, items: items, i: 0, c: 0, pts: 0, shield: false, retry: !!retry};
   run = S.run; tick(); save(); showQ();
 }
 function resumeRun() { run = S.run; showQ(); }
@@ -566,7 +570,7 @@ function resolve(ok, detail, opt) {
   const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]];
   let gain = 0, note = '';
   if (run.mode === 'zone') {
-    const t = S.teks[z.teks] || (S.teks[z.teks] = {c:0, t:0, r:0}); t.t++;
+    const t = run.retry ? {c:0, t:0, r:0} : (S.teks[z.teks] || (S.teks[z.teks] = {c:0, t:0, r:0})); t.t++;
     if (opt.skip) { if (!S.missed.some(m => m[0] === it[0] && m[1] === it[1])) S.missed.push([it[0], it[1]]); }
     else if (ok) { t.c++; S.streak++; S.best = Math.max(S.best, S.streak); const bonus = Math.min(S.streak - 1, 5) * 20; gain = (run.hint ? 75 : 100) + bonus; run.c++; note = bonus ? ' (includes +' + bonus + ' streak bonus)' : ''; }
     else { S.streak = 0; if (!S.missed.some(m => m[0] === it[0] && m[1] === it[1])) S.missed.push([it[0], it[1]]); }
@@ -597,17 +601,31 @@ function resolve(ok, detail, opt) {
 function endRun() {
   const r = run; run = null; S.run = null; tick();
   if (r.mode === 'zone') {
-    const z = ZONES[r.items[0][0]]; S.zones[z.id] = {c:r.c, t:r.items.length, pts:r.pts};
-    const n = stars(r.c, r.items.length), allDone = ZONES.every(x => S.zones[x.id]), perfect = r.c === r.items.length;
-    save(); sfx('star'); confetti(n === 3 ? 90 : n === 2 ? 40 : 15);
+    const z = ZONES[r.items[0][0]], zi = r.items[0][0], prev = S.zones[z.id];
+    const rec = {c:r.c, t:r.items.length, pts:r.pts, tries:(prev && prev.tries || (prev ? 1 : 0)) + 1};
+    if (prev && prev.c >= rec.c) { rec.c = prev.c; rec.t = prev.t; }
+    S.zones[z.id] = rec;
+    const pass = r.c * 100 >= r.items.length * PASS_PCT;
+    const n = stars(r.c, r.items.length), allDone = ZONES.every(x => passed(S.zones[x.id])), perfect = r.c === r.items.length;
+    save();
+    if (!pass) {
+      const pctNow = Math.round(r.c / r.items.length * 100), need = Math.ceil(r.items.length * PASS_PCT / 100);
+      screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>So close — try again!</h1>' +
+        '<p><b>' + r.c + ' of ' + r.items.length + '</b> correct (' + pctNow + '%) · +' + r.pts + ' points</p>' +
+        '<p class="sub">You need <b>' + need + '</b> correct (70%) to unlock the reward game. Redo the zone for another chance!</p>' +
+        '<div class="row"><button class="btn primary" id="redo">🔁 Redo this zone ▶</button><button class="btn" id="hub">Back to the map</button></div></div>');
+      $('#hub').onclick = showHub; $('#redo').onclick = () => showIntro(zi);
+      return;
+    }
+    sfx('star'); confetti(n === 3 ? 90 : n === 2 ? 40 : 15);
     if (perfect) { award('perfect'); S.pw.fifty++; }
     if (Object.keys(S.zones).filter(k => stars(S.zones[k].c, S.zones[k].t) === 3).length >= 5) award('stars');
     if (allDone) award('quest');
-    S.rw = {zi: r.items[0][0], n: n}; save();
-    screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>Zone complete!</h1><div class="stars" style="color:#f59f00">' + starStr(n) + '</div>' +
+    S.rw = {zi: zi, n: n}; save();
+    screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>Zone passed!</h1><div class="stars" style="color:#f59f00">' + starStr(n) + '</div>' +
       '<p><b>' + r.c + ' of ' + r.items.length + '</b> correct · +' + r.pts + ' points</p>' +
       (perfect ? '<p class="sub">Perfect zone! 🎉 You earned a bonus ✂️ 50/50 power-up.</p>' : '<p class="sub">Missed or skipped questions will return in the Rematch Arena.</p>') +
-      (allDone ? '<p><b>🏆 All zones done — the Rematch Arena is unlocked!</b></p>' : '') +
+      (allDone ? '<p><b>🏆 All zones passed — the Rematch Arena is unlocked!</b></p>' : '') +
       '<div class="row"><button class="btn primary" id="rw">🎮 Play your reward game ▶</button><button class="btn" id="hub">Back to the map</button></div></div>');
     $('#hub').onclick = showHub; $('#rw').onclick = showReward;
   } else if (r.mode === 'rematch') {
@@ -625,7 +643,7 @@ function showReport() {
   run = null; tick(); save();
   const rows = ZONES.map(z => ({z: z, t: S.teks[z.teks]})).filter(x => x.t && x.t.t);
   const C = rows.reduce((a, x) => a + x.t.c, 0), T = rows.reduce((a, x) => a + x.t.t, 0);
-  const acc = T ? Math.round(C / T * 100) : 0, allDone = ZONES.every(z => S.zones[z.id]);
+  const acc = T ? Math.round(C / T * 100) : 0, allDone = ZONES.every(z => passed(S.zones[z.id]));
   const rank = !allDone ? 'Quest in progress 🧭' : acc >= 95 ? 'Nobel Prize Contender 🏆' : acc >= 85 ? 'Lead Scientist 🔬' : acc >= 70 ? 'Research Scientist 🧪' : acc >= 55 ? 'Lab Technician 🥼' : 'Rookie Researcher 🌱';
   const mins = Math.max(1, Math.round(S.ms / 60000));
   const status = p => p >= 80 ? ['Mastered ✅', '#2f9e44'] : p >= 60 ? ['Almost there 🟡', '#f59f00'] : ['Review again 🔴', '#e03131'];
