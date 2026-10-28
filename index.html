@@ -309,13 +309,13 @@ const ZONES = [
 /* ---------- state ---------- */
 const SAVE_KEY = 'sciReviewQuest.v1';
 const app = document.getElementById('app');
-function fresh() { return {name:'', av:'🧑‍🔬', score:0, streak:0, best:0, zones:{}, teks:{}, missed:[], ms:0, last:0, run:null, rematchDone:false, pw:{fifty:1, skip:1, shield:1}, badges:{}, labs:{}, mute:false}; }
+function fresh() { return {name:'', av:'🧑‍🔬', score:0, streak:0, best:0, zones:{}, teks:{}, missed:[], ms:0, last:0, run:null, rematchDone:false, pw:{fifty:1, skip:1, shield:1}, badges:{}, labs:{}, mute:false, rw:null, arcade:{best:{brick:0, hoops:0, reel:0}, plays:0}}; }
 function load() { try { const r = localStorage.getItem(SAVE_KEY); if (!r) return null; const o = JSON.parse(r), f = fresh(); for (const k in f) if (!(k in o)) o[k] = f[k]; return o; } catch (e) { return null; } }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 let S = load() || fresh();
 let run = S.run || null;
-let curQ = null, labRAF = 0;
-function stopLab() { if (labRAF) { cancelAnimationFrame(labRAF); labRAF = 0; } }
+let curQ = null, labRAF = 0, miniCleanup = null;
+function stopLab() { if (labRAF) { cancelAnimationFrame(labRAF); labRAF = 0; } if (miniCleanup) { miniCleanup(); miniCleanup = null; } }
 function tick() { const n = Date.now(); if (S.last) S.ms += Math.min(n - S.last, 180000); S.last = n; }
 function screen(html) { stopLab(); app.innerHTML = html; window.scrollTo(0, 0); }
 const stars = (c, t) => { const p = c / t; return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1; };
@@ -324,7 +324,7 @@ const starStr = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 /* ---------- levels, badges, power-ups ---------- */
 const LEVELS = [[0, 'Lab Rookie'], [600, 'Junior Scientist'], [1500, 'Research Scientist'], [2800, 'Lead Investigator'], [4200, 'Nobel Contender']];
 const lvl = () => { let l = LEVELS[0]; LEVELS.forEach(x => { if (S.score >= x[0]) l = x; }); return l[1]; };
-const BADGES = {streak5:['🔥', 'On Fire', '5 correct in a row'], perfect:['💯', 'Perfect Zone', 'Every question right in a zone'], stars:['🌟', 'Star Collector', '3 stars in five zones'], quest:['🏁', 'Quest Complete', 'Finished all 10 zones'], comeback:['🔁', 'Comeback Kid', 'Cleared every missed question in the Rematch'], labs:['🧪', 'Lab Partner', 'Finished both lab stations']};
+const BADGES = {streak5:['🔥', 'On Fire', '5 correct in a row'], perfect:['💯', 'Perfect Zone', 'Every question right in a zone'], stars:['🌟', 'Star Collector', '3 stars in five zones'], quest:['🏁', 'Quest Complete', 'Finished all 10 zones'], comeback:['🔁', 'Comeback Kid', 'Cleared every missed question in the Rematch'], labs:['🧪', 'Lab Partner', 'Finished both lab stations'], arcade:['🎮', 'Arcade Champ', 'Played 5 reward games']};
 const PWN = {fifty:['✂️', '50/50'], skip:['⏭', 'Skip'], shield:['🛡', 'Shield']};
 function award(id) { if (S.badges[id]) return; S.badges[id] = 1; toast('🏅 Badge earned: ' + BADGES[id][0] + ' ' + BADGES[id][1]); sfx('star'); save(); }
 function grantPW() { const ks = Object.keys(PWN), k = ks[Math.floor(Math.random() * ks.length)]; S.pw[k]++; toast('🎁 New power-up: ' + PWN[k][0] + ' ' + PWN[k][1] + '!'); sfx('pw'); }
@@ -340,7 +340,7 @@ function sfx(k) {
   if (S.mute) return;
   try {
     AC = AC || new (window.AudioContext || window.webkitAudioContext)();
-    const seq = {ok:[[660, .09], [880, .14]], bad:[[220, .16], [165, .22]], star:[[523, .1], [659, .1], [784, .1], [1047, .25]], pw:[[784, .08], [988, .08], [1319, .18]], click:[[500, .04]]}[k];
+    const seq = {ok:[[660, .09], [880, .14]], bad:[[220, .16], [165, .22]], star:[[523, .1], [659, .1], [784, .1], [1047, .25]], pw:[[784, .08], [988, .08], [1319, .18]], click:[[500, .04]], hit:[[420, .05]], pop:[[740, .06]]}[k];
     let t = AC.currentTime;
     seq.forEach(p => { const o = AC.createOscillator(), g = AC.createGain(); o.type = k === 'bad' ? 'sawtooth' : 'triangle'; o.frequency.value = p[0]; g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + p[1]); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + p[1]); t += p[1] * .9; });
   } catch (e) {}
@@ -397,6 +397,7 @@ function showHub() {
   const pct = Math.round(done / ZONES.length * 100);
   let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Complete all 10 zones to unlock the Rematch Arena. Lab stations are optional bonus missions.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete · Power-ups: ' + Object.keys(PWN).map(k => PWN[k][0] + '×' + S.pw[k]).join(' ') + '</div></div>';
   if (S.run) h += '<div class="card" style="border-color:#ffc078"><b>⏸ You paused in the middle of a round.</b><div class="actions"><button class="btn primary" id="resume">Resume ▶</button></div></div>';
+  if (S.rw) h += '<div class="card" style="border-color:#74c0fc"><b>🎮 A reward game is waiting for you!</b><div class="actions"><button class="btn primary" id="rwb">Play ▶</button></div></div>';
   h += '<div class="map">';
   ZONES.forEach((z, i) => {
     const r = S.zones[z.id];
@@ -414,6 +415,7 @@ function showHub() {
   $('#labF').onclick = showForceLab; $('#labP').onclick = showPlateLab;
   $('#rep').onclick = showReport;
   const rs = $('#resume'); if (rs) rs.onclick = resumeRun;
+  const rw = $('#rwb'); if (rw) rw.onclick = showReward;
 }
 
 function showIntro(zi) {
@@ -601,13 +603,13 @@ function endRun() {
     if (perfect) { award('perfect'); S.pw.fifty++; }
     if (Object.keys(S.zones).filter(k => stars(S.zones[k].c, S.zones[k].t) === 3).length >= 5) award('stars');
     if (allDone) award('quest');
-    save();
+    S.rw = {zi: r.items[0][0], n: n}; save();
     screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>Zone complete!</h1><div class="stars" style="color:#f59f00">' + starStr(n) + '</div>' +
       '<p><b>' + r.c + ' of ' + r.items.length + '</b> correct · +' + r.pts + ' points</p>' +
       (perfect ? '<p class="sub">Perfect zone! 🎉 You earned a bonus ✂️ 50/50 power-up.</p>' : '<p class="sub">Missed or skipped questions will return in the Rematch Arena.</p>') +
       (allDone ? '<p><b>🏆 All zones done — the Rematch Arena is unlocked!</b></p>' : '') +
-      '<div class="row"><button class="btn primary" id="hub">Back to the map ▶</button></div></div>');
-    $('#hub').onclick = showHub;
+      '<div class="row"><button class="btn primary" id="rw">🎮 Play your reward game ▶</button><button class="btn" id="hub">Back to the map</button></div></div>');
+    $('#hub').onclick = showHub; $('#rw').onclick = showReward;
   } else if (r.mode === 'rematch') {
     S.rematchDone = true; if (r.c === r.items.length && r.items.length) award('comeback');
     save(); sfx('star'); confetti(r.c === r.items.length ? 90 : 30);
@@ -636,7 +638,7 @@ function showReport() {
   });
   h += '</table>' + (rows.length ? '' : '<p class="sub">Play a zone to see results here.</p>') +
     '<h3 style="margin-top:16px">Badges</h3><div class="badges">' + Object.keys(BADGES).map(k => '<div class="bdg ' + (S.badges[k] ? '' : 'off') + '" title="' + BADGES[k][2] + '">' + BADGES[k][0] + ' ' + BADGES[k][1] + '</div>').join('') + '</div>' +
-    '<p class="small">Lab stations: ' + (S.labs.force ? '✅' : '⬜') + ' Force &amp; Motion · ' + (S.labs.plates ? '✅' : '⬜') + ' Plate Boundary</p>' +
+    '<p class="small">🎮 Arcade high scores — Brick Lab: ' + S.arcade.best.brick + ' · Lab Hoops: ' + S.arcade.best.hoops + ' · Reel Lab: ' + S.arcade.best.reel + '</p><p class="small">Lab stations: ' + (S.labs.force ? '✅' : '⬜') + ' Force &amp; Motion · ' + (S.labs.plates ? '✅' : '⬜') + ' Plate Boundary</p>' +
     '<div class="actions noprint"><button class="btn" id="hub">← Map</button><button class="btn primary" id="print">🖨 Print / Save as PDF</button></div></div>';
   screen(h);
   $('#hub').onclick = showHub; $('#print').onclick = () => window.print();
@@ -850,6 +852,197 @@ function showPlateLab() {
   setPrompt();
   function frame(now) { drawPlates(cx, mode, (now - t0) / 1000); labRAF = requestAnimationFrame(frame); }
   labRAF = requestAnimationFrame(frame);
+}
+
+/* ---------- reward mini-games ---------- */
+const MINI_INFO = {
+  brick: ['🧱', 'Brick Lab', 'Move the paddle with your mouse, finger, or ← → keys. Click or press Space to launch the ball. Each brick is 10 points!'],
+  hoops: ['🏀', 'Lab Hoops', 'Move left or right to line up under the moving hoop. Click, tap, or press Space to shoot. Swish the center for 3 points!'],
+  reel: ['🎣', 'Reel Lab', 'Move the boat with your mouse, finger, or ← → keys. Click, tap, or press Space to drop the hook. Catch specimens 🐟 🐠 🐡 🦑 — but avoid the boot 👢!']
+};
+
+function showReward() {
+  if (!S.rw) { showHub(); return; }
+  const secs = S.rw.n === 3 ? 60 : S.rw.n === 2 ? 45 : 30, z = ZONES[S.rw.zi];
+  screen(hud() + '<div class="card hero pop"><div class="big">🎮</div><h1>Reward Round!</h1><p class="sub">You finished <b>' + z.title + '</b> with ' + starStr(S.rw.n) + '. Your game lasts <b>' + secs + ' seconds</b> (more stars = more play time). Pick one:</p>' +
+    '<div class="map" style="max-width:640px;margin:14px auto">' + ['brick', 'hoops', 'reel'].map(k => '<button class="zone" data-g="' + k + '"><div class="zi">' + MINI_INFO[k][0] + '</div><div class="zt">' + MINI_INFO[k][1] + '</div><div class="zs">Best: ' + S.arcade.best[k] + '</div></button>').join('') + '</div>' +
+    '<div class="row"><button class="btn" id="skip">Skip reward</button></div></div>');
+  document.querySelectorAll('.zone[data-g]').forEach(b => b.onclick = () => startMini(b.dataset.g, secs));
+  $('#skip').onclick = () => { S.rw = null; save(); showHub(); };
+}
+
+function startMini(id, secs) {
+  const info = MINI_INFO[id];
+  screen(hud() + '<div class="card"><h2>' + info[0] + ' ' + info[1] + '</h2><div class="readout"><b id="mt">⏱ ' + secs + 's</b> · <b id="msc">Score: 0</b></div>' +
+    '<canvas id="cv" class="cv" width="640" height="360" style="touch-action:none;cursor:crosshair" aria-label="' + info[1] + ' game"></canvas>' +
+    '<p class="small">' + info[2] + '</p><div class="actions"><button class="btn" id="quit">End game</button></div></div>');
+  const cv = $('#cv'), cx = cv.getContext ? cv.getContext('2d') : null;
+  const game = {brick: miniBrick, hoops: miniHoops, reel: miniReel}[id](cx);
+  const inp = {x: null, act: false, l: 0, r: 0};
+  const pos = e => { const b = cv.getBoundingClientRect(); inp.x = Math.max(0, Math.min(640, (e.clientX - b.left) / b.width * 640)); };
+  const pm = e => pos(e), pd = e => { pos(e); inp.act = true; e.preventDefault(); };
+  const kd = e => { if (e.key === 'ArrowLeft') { inp.l = 1; inp.x = null; e.preventDefault(); } else if (e.key === 'ArrowRight') { inp.r = 1; inp.x = null; e.preventDefault(); } else if (e.key === ' ' || e.key === 'Spacebar') { inp.act = true; e.preventDefault(); } };
+  const ku = e => { if (e.key === 'ArrowLeft') inp.l = 0; else if (e.key === 'ArrowRight') inp.r = 0; };
+  cv.addEventListener('pointermove', pm); cv.addEventListener('pointerdown', pd);
+  document.addEventListener('keydown', kd); document.addEventListener('keyup', ku);
+  miniCleanup = () => { document.removeEventListener('keydown', kd); document.removeEventListener('keyup', ku); };
+  let last = performance.now(), left = secs, over = false, endT = 0, done = false;
+  function finish() { if (done) return; done = true; stopLab(); finishMini(id, game.score); }
+  $('#quit').onclick = finish;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, .04); last = now;
+    if (!over) { left -= dt; game.update(dt, inp); inp.act = false; if (left <= 0) { left = 0; over = true; sfx('star'); } }
+    else { endT += dt; if (endT > 1.3) { finish(); return; } }
+    game.draw(over);
+    $('#mt').textContent = '⏱ ' + Math.ceil(left) + 's'; $('#msc').textContent = 'Score: ' + game.score;
+    labRAF = requestAnimationFrame(frame);
+  }
+  labRAF = requestAnimationFrame(frame);
+}
+
+function finishMini(id, score) {
+  const best = S.arcade.best[id] < score; if (best) S.arcade.best[id] = score;
+  S.arcade.plays++; S.rw = null; if (S.arcade.plays >= 5) award('arcade'); save();
+  sfx('star'); confetti(best && score > 0 ? 80 : 20);
+  screen(hud() + '<div class="card hero pop"><div class="big">' + MINI_INFO[id][0] + '</div><h1>Time’s up!</h1><p style="font-size:1.6rem;margin:6px 0"><b>' + score + '</b> points</p>' +
+    (best && score > 0 ? '<p><b>🏆 New personal best!</b></p>' : '<p class="sub">Personal best: ' + S.arcade.best[id] + '</p>') +
+    '<div class="row"><button class="btn primary" id="hub">Back to the map ▶</button></div></div>');
+  $('#hub').onclick = showHub;
+}
+
+/* ===== Brick Lab ===== */
+function miniBrick(cx) {
+  const W = 640, H = 360, bw = 56, bh = 18, colors = ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#4dabf7'];
+  const g = {score: 0, bricks: [], paddle: {x: 320, w: 96, h: 12, y: 332}, ball: {x: 320, y: 320, vx: 0, vy: 0, r: 7, stuck: true, st: 0}, flash: 0};
+  function reset() { g.bricks = []; for (let r = 0; r < 5; r++) for (let c = 0; c < 10; c++) g.bricks.push({x: 20 + c * (bw + 4), y: 40 + r * (bh + 4), alive: true, col: colors[r]}); }
+  reset();
+  g.update = (dt, inp) => {
+    const p = g.paddle, b = g.ball;
+    if (inp.x !== null) p.x = inp.x; p.x += (inp.r - inp.l) * 460 * dt; p.x = Math.max(p.w / 2, Math.min(W - p.w / 2, p.x));
+    if (b.stuck) {
+      b.x = p.x; b.y = p.y - b.r - 1; b.st += dt;
+      if (inp.act || b.st > .9) { const a = -Math.PI / 2 + (Math.random() - .5) * .8; b.vx = 330 * Math.cos(a); b.vy = 330 * Math.sin(a); b.stuck = false; b.st = 0; }
+      return;
+    }
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx); sfx('pop'); }
+    if (b.x > W - b.r) { b.x = W - b.r; b.vx = -Math.abs(b.vx); sfx('pop'); }
+    if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy); sfx('pop'); }
+    if (b.y > H + 12) { b.stuck = true; b.st = 0; return; }
+    if (b.vy > 0 && b.y + b.r >= p.y && b.y + b.r <= p.y + p.h + 8 && Math.abs(b.x - p.x) <= p.w / 2 + b.r) {
+      const off = Math.max(-1, Math.min(1, (b.x - p.x) / (p.w / 2))), a = -Math.PI / 2 + off * 1.0 + (Math.random() - .5) * .25;
+      b.vx = 340 * Math.cos(a); b.vy = 340 * Math.sin(a); b.y = p.y - b.r; sfx('pop');
+    }
+    for (const k of g.bricks) {
+      if (!k.alive) continue;
+      if (b.x + b.r > k.x && b.x - b.r < k.x + bw && b.y + b.r > k.y && b.y - b.r < k.y + bh) {
+        k.alive = false; g.score += 10; sfx('hit');
+        const dx = Math.min(b.x + b.r - k.x, k.x + bw - (b.x - b.r)), dy = Math.min(b.y + b.r - k.y, k.y + bh - (b.y - b.r));
+        if (dx < dy) b.vx = -b.vx; else b.vy = -b.vy; break;
+      }
+    }
+    if (g.bricks.every(k => !k.alive)) { g.score += 50; reset(); g.flash = 1; b.stuck = true; b.st = 0; }
+  };
+  g.draw = over => {
+    if (!cx) return;
+    cx.fillStyle = '#12224a'; cx.fillRect(0, 0, W, H);
+    for (const k of g.bricks) if (k.alive) { cx.fillStyle = k.col; cx.fillRect(k.x, k.y, bw, bh); cx.fillStyle = 'rgba(255,255,255,.25)'; cx.fillRect(k.x, k.y, bw, 4); }
+    const p = g.paddle, b = g.ball;
+    cx.fillStyle = '#e9ecef'; cx.fillRect(p.x - p.w / 2, p.y, p.w, p.h); cx.fillStyle = '#4dabf7'; cx.fillRect(p.x - p.w / 2, p.y, p.w, 4);
+    cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(b.x, b.y, b.r, 0, 7); cx.fill();
+    if (b.stuck) { cx.fillStyle = '#fff'; cx.font = '700 14px system-ui,Arial,sans-serif'; cx.textAlign = 'center'; cx.fillText('Click or press Space to launch', W / 2, 250); }
+    if (over) { cx.fillStyle = 'rgba(0,0,0,.55)'; cx.fillRect(0, 0, W, H); cx.fillStyle = '#fff'; cx.font = '800 40px system-ui,Arial,sans-serif'; cx.textAlign = 'center'; cx.fillText('Time!', W / 2, H / 2); }
+  };
+  return g;
+}
+
+/* ===== Lab Hoops ===== */
+function miniHoops(cx) {
+  const W = 640, H = 360, Y0 = 318, G = 2400, V = Math.sqrt(2 * G * 282), RIM = 110, HALF = 36;
+  const TD = (V + Math.sqrt(V * V - 4 * (G / 2) * (Y0 - RIM))) / G; // time when the ball is coming down through the rim
+  const g = {score: 0, tt: 0, px: 320, shot: null, pops: [], TD: TD, hoopX: () => 320 + Math.sin(g.tt) * 200};
+  g.update = (dt, inp) => {
+    g.tt += dt * (1.3 + g.score * .03);
+    if (inp.x !== null) g.px = inp.x; g.px += (inp.r - inp.l) * 400 * dt; g.px = Math.max(30, Math.min(W - 30, g.px));
+    if (!g.shot && inp.act) g.shot = {t: 0, x: g.px, scored: false, judged: false};
+    if (g.shot) {
+      const s = g.shot; s.t += dt;
+      if (!s.judged && s.t >= TD) {
+        s.judged = true; const dx = Math.abs(s.x - g.hoopX());
+        if (dx <= HALF - 6) { const pts = dx < 12 ? 3 : 2; g.score += pts; s.scored = true; g.pops.push({t: 0, x: g.hoopX(), text: '+' + pts + (pts === 3 ? ' Swish!' : '')}); sfx('ok'); }
+        else { g.pops.push({t: 0, x: s.x, text: dx < HALF + 14 ? 'Rim out!' : 'Miss'}); sfx('bad'); }
+      }
+      if (s.t > TD + .5) g.shot = null;
+    }
+    g.pops.forEach(p => p.t += dt); g.pops = g.pops.filter(p => p.t < 1);
+  };
+  g.draw = over => {
+    if (!cx) return;
+    cx.fillStyle = '#1b2437'; cx.fillRect(0, 0, W, H); cx.fillStyle = '#c98f5a'; cx.fillRect(0, 300, W, 60);
+    cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 3; cx.beginPath(); cx.arc(W / 2, 360, 90, Math.PI, 0); cx.stroke();
+    const hx = g.hoopX();
+    cx.fillStyle = '#f8f9fa'; cx.fillRect(hx - 46, 52, 92, 54); cx.strokeStyle = '#e03131'; cx.lineWidth = 3; cx.strokeRect(hx - 18, 76, 36, 28);
+    cx.strokeStyle = 'rgba(255,255,255,.8)'; cx.lineWidth = 2;
+    for (let i = 0; i <= 4; i++) { cx.beginPath(); cx.moveTo(hx - HALF + i * (HALF * 2 / 4), RIM); cx.lineTo(hx - 20 + i * 10, RIM + 42); cx.stroke(); }
+    for (let j = 1; j <= 2; j++) { cx.beginPath(); cx.moveTo(hx - HALF + j * 8, RIM + j * 14); cx.lineTo(hx + HALF - j * 8, RIM + j * 14); cx.stroke(); }
+    cx.strokeStyle = '#ff922b'; cx.lineWidth = 6; cx.beginPath(); cx.moveTo(hx - HALF, RIM); cx.lineTo(hx + HALF, RIM); cx.stroke();
+    cx.strokeStyle = 'rgba(255,255,255,.25)'; cx.setLineDash([6, 8]); cx.lineWidth = 2; cx.beginPath(); cx.moveTo(g.px, Y0 - 16); cx.lineTo(g.px, 60); cx.stroke(); cx.setLineDash([]);
+    let by = Y0, bxx = g.px;
+    if (g.shot) { bxx = g.shot.x; by = Y0 - V * g.shot.t + .5 * G * g.shot.t * g.shot.t; }
+    cx.fillStyle = '#ff922b'; cx.beginPath(); cx.arc(bxx, by, 14, 0, 7); cx.fill(); cx.strokeStyle = '#7f3b00'; cx.lineWidth = 2; cx.beginPath(); cx.arc(bxx, by, 14, 0, 7); cx.moveTo(bxx - 14, by); cx.lineTo(bxx + 14, by); cx.stroke();
+    cx.font = '34px system-ui,Arial,sans-serif'; cx.textAlign = 'center'; cx.fillStyle = '#fff'; cx.fillText('🧑‍🔬', g.px, 352);
+    g.pops.forEach(p => { cx.globalAlpha = 1 - p.t; cx.fillStyle = '#ffd43b'; cx.font = '800 22px system-ui,Arial,sans-serif'; cx.fillText(p.text, p.x, 90 - p.t * 30); cx.globalAlpha = 1; });
+    if (over) { cx.fillStyle = 'rgba(0,0,0,.55)'; cx.fillRect(0, 0, W, H); cx.fillStyle = '#fff'; cx.font = '800 40px system-ui,Arial,sans-serif'; cx.fillText('Time!', W / 2, H / 2); }
+  };
+  return g;
+}
+
+/* ===== Reel Lab ===== */
+function miniReel(cx) {
+  const W = 640, H = 360, TYPES = [['🐟', 10, 6], ['🐠', 20, 4], ['🐡', 30, 3], ['🦑', 50, 2], ['👢', -10, 2]];
+  const pickType = () => { let r = Math.random() * 17; for (const t of TYPES) { r -= t[2]; if (r <= 0) return t; } return TYPES[0]; };
+  const g = {score: 0, boat: 320, hook: {x: 320, y: 78, st: 'idle', fish: null}, fish: [], pops: []};
+  function spawn(f, fresh) {
+    const t = pickType(), dir = Math.random() < .5 ? 1 : -1;
+    f.t = t; f.vx = dir * (55 + Math.random() * 85) * (1 + (4 - t[2]) * .05); f.y = 130 + Math.random() * 200;
+    f.x = fresh ? Math.random() * W : (dir > 0 ? -40 : W + 40); f.caught = false;
+  }
+  for (let i = 0; i < 9; i++) { const f = {}; spawn(f, true); g.fish.push(f); }
+  g.update = (dt, inp) => {
+    if (inp.x !== null) g.boat = inp.x; g.boat += (inp.r - inp.l) * 380 * dt; g.boat = Math.max(30, Math.min(W - 30, g.boat));
+    const h = g.hook;
+    g.fish.forEach(f => { if (f.caught) return; f.x += f.vx * dt; if (f.x < -60 || f.x > W + 60) spawn(f, false); });
+    if (h.st === 'idle') { h.x = g.boat; h.y = 78; if (inp.act) { h.st = 'down'; sfx('click'); } }
+    else if (h.st === 'down') {
+      h.y += 280 * dt;
+      for (const f of g.fish) if (!f.caught && Math.hypot(f.x - h.x, f.y - h.y) < 26) { f.caught = true; h.fish = f; h.st = 'up'; sfx('pop'); break; }
+      if (h.y > 345) h.st = 'up';
+    } else if (h.st === 'up') {
+      h.y -= 320 * dt; if (h.fish) { h.fish.x = h.x; h.fish.y = h.y + 6; }
+      if (h.y <= 78) {
+        h.y = 78; h.st = 'idle';
+        if (h.fish) { const v = h.fish.t[1]; g.score = Math.max(0, g.score + v); g.pops.push({t: 0, x: h.x, text: (v > 0 ? '+' : '') + v}); sfx(v > 0 ? 'ok' : 'bad'); spawn(h.fish, false); h.fish = null; }
+      }
+    }
+    g.pops.forEach(p => p.t += dt); g.pops = g.pops.filter(p => p.t < 1);
+  };
+  g.draw = over => {
+    if (!cx) return;
+    const sky = cx.createLinearGradient(0, 0, 0, 80); sky.addColorStop(0, '#a5d8ff'); sky.addColorStop(1, '#e7f5ff'); cx.fillStyle = sky; cx.fillRect(0, 0, W, 80);
+    const sea = cx.createLinearGradient(0, 80, 0, H); sea.addColorStop(0, '#4dabf7'); sea.addColorStop(1, '#0b3d66'); cx.fillStyle = sea; cx.fillRect(0, 80, W, H - 80);
+    cx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 0; i < 16; i++) cx.fillRect(i * 44 + (Date.now() / 60 % 44), 80, 22, 3);
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    g.fish.forEach(f => { if (f === g.hook.fish) return; cx.save(); cx.translate(f.x, f.y); if (f.vx > 0) cx.scale(-1, 1); cx.font = '32px system-ui,Arial,sans-serif'; cx.fillText(f.t[0], 0, 0); cx.restore(); });
+    const h = g.hook;
+    cx.strokeStyle = '#f1f3f5'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(g.boat, 52); cx.lineTo(h.x, h.y); cx.stroke();
+    cx.strokeStyle = '#ced4da'; cx.lineWidth = 3; cx.beginPath(); cx.arc(h.x, h.y + 6, 7, 0, Math.PI * 1.2); cx.stroke();
+    if (h.fish) { cx.save(); cx.translate(h.fish.x, h.fish.y + 10); cx.font = '32px system-ui,Arial,sans-serif'; cx.fillText(h.fish.t[0], 0, 0); cx.restore(); }
+    cx.font = '40px system-ui,Arial,sans-serif'; cx.fillText('⛵', g.boat, 50);
+    cx.textBaseline = 'alphabetic';
+    g.pops.forEach(p => { cx.globalAlpha = 1 - p.t; cx.fillStyle = p.text[0] === '-' ? '#ff8787' : '#ffd43b'; cx.font = '800 22px system-ui,Arial,sans-serif'; cx.fillText(p.text, p.x, 120 - p.t * 30); cx.globalAlpha = 1; });
+    if (over) { cx.fillStyle = 'rgba(0,0,0,.55)'; cx.fillRect(0, 0, W, H); cx.fillStyle = '#fff'; cx.font = '800 40px system-ui,Arial,sans-serif'; cx.fillText('Time!', W / 2, H / 2); }
+  };
+  return g;
 }
 
 showTitle();
