@@ -91,6 +91,34 @@ select{font:inherit;padding:10px;border:2px solid var(--line);border-radius:10px
 .tekstext{font-size:.9rem;color:var(--mut);background:#f4f7ff;border-radius:12px;padding:10px 12px;margin:10px 0;text-align:left}
 @media (max-width:560px){.mrow{grid-template-columns:1fr}.gopts{grid-template-columns:1fr 1fr}html{font-size:16px}}
 @media print{body{background:#fff}.noprint{display:none!important}.card{box-shadow:none}}
+
+button.pill{border:0;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.pws{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.pwb{border:2px solid #d0bfff;background:#f3f0ff;color:#5f3dc4;border-radius:12px;padding:8px 12px;font-weight:700;min-height:42px}
+.pwb.on{background:#7048e8;color:#fff;border-color:#7048e8}
+.pwb[disabled]{opacity:.4;cursor:not-allowed}
+.opt.gone{opacity:.25}
+.fb.skip{background:#fff9db;border-color:#fcc419}
+.cf{position:fixed;top:-16px;width:10px;height:14px;z-index:99;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(108vh) rotate(720deg)}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);background:#12224a;color:#fff;padding:12px 18px;border-radius:14px;z-index:100;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);max-width:90vw;text-align:center;animation:pop .4s}
+.avs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0 14px}
+.avb{font-size:1.7rem;width:56px;height:56px;border-radius:16px;border:3px solid var(--line);background:#fff}
+.avb.sel{border-color:var(--pri);background:#eef2ff;transform:scale(1.1)}
+.cv{display:block;width:100%;max-width:640px;height:auto;margin:8px auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:8px 0}
+.ctl label{display:block;font-weight:700}
+.ctl input[type=range]{width:100%;height:32px}
+.readout{background:#f4f7ff;border-radius:12px;padding:10px 14px;margin:8px 0;font-size:.95rem}
+.missions{list-style:none;padding:0;margin:8px 0}
+.missions li{padding:8px 12px;border-radius:10px;background:#f6f8ff;border:2px solid var(--line);margin-bottom:6px}
+.missions li.done{background:var(--okbg);border-color:var(--ok)}
+.modes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.modes .btn.sel{background:var(--pri);color:#fff}
+.zone.lab{border-style:dashed}
+.badges{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.bdg{background:#fff9db;border:2px solid #ffe066;border-radius:14px;padding:8px 12px;font-size:.9rem}
+.bdg.off{background:#f1f3f5;border-color:#dee2e6;opacity:.5}
 </style>
 </head>
 <body>
@@ -281,36 +309,85 @@ const ZONES = [
 /* ---------- state ---------- */
 const SAVE_KEY = 'sciReviewQuest.v1';
 const app = document.getElementById('app');
-function fresh() { return {name:'', score:0, streak:0, best:0, zones:{}, teks:{}, missed:[], ms:0, last:0, run:null, rematchDone:false}; }
-function load() { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function fresh() { return {name:'', av:'🧑‍🔬', score:0, streak:0, best:0, zones:{}, teks:{}, missed:[], ms:0, last:0, run:null, rematchDone:false, pw:{fifty:1, skip:1, shield:1}, badges:{}, labs:{}, mute:false}; }
+function load() { try { const r = localStorage.getItem(SAVE_KEY); if (!r) return null; const o = JSON.parse(r), f = fresh(); for (const k in f) if (!(k in o)) o[k] = f[k]; return o; } catch (e) { return null; } }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 let S = load() || fresh();
 let run = S.run || null;
+let curQ = null, labRAF = 0;
+function stopLab() { if (labRAF) { cancelAnimationFrame(labRAF); labRAF = 0; } }
 function tick() { const n = Date.now(); if (S.last) S.ms += Math.min(n - S.last, 180000); S.last = n; }
-function screen(html) { app.innerHTML = html; window.scrollTo(0, 0); }
-const totalQs = () => ZONES.reduce((a, z) => a + z.qs.length, 0);
+function screen(html) { stopLab(); app.innerHTML = html; window.scrollTo(0, 0); }
 const stars = (c, t) => { const p = c / t; return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1; };
 const starStr = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 
-function hud(extra) {
-  return '<div class="hud noprint"><div class="t">🔬 Science Review Quest</div><div><span class="pill">⭐ ' + S.score + '</span> <span class="pill">🔥 ' + S.streak + '</span>' + (extra || '') + '</div></div>';
+/* ---------- levels, badges, power-ups ---------- */
+const LEVELS = [[0, 'Lab Rookie'], [600, 'Junior Scientist'], [1500, 'Research Scientist'], [2800, 'Lead Investigator'], [4200, 'Nobel Contender']];
+const lvl = () => { let l = LEVELS[0]; LEVELS.forEach(x => { if (S.score >= x[0]) l = x; }); return l[1]; };
+const BADGES = {streak5:['🔥', 'On Fire', '5 correct in a row'], perfect:['💯', 'Perfect Zone', 'Every question right in a zone'], stars:['🌟', 'Star Collector', '3 stars in five zones'], quest:['🏁', 'Quest Complete', 'Finished all 10 zones'], comeback:['🔁', 'Comeback Kid', 'Cleared every missed question in the Rematch'], labs:['🧪', 'Lab Partner', 'Finished both lab stations']};
+const PWN = {fifty:['✂️', '50/50'], skip:['⏭', 'Skip'], shield:['🛡', 'Shield']};
+function award(id) { if (S.badges[id]) return; S.badges[id] = 1; toast('🏅 Badge earned: ' + BADGES[id][0] + ' ' + BADGES[id][1]); sfx('star'); save(); }
+function grantPW() { const ks = Object.keys(PWN), k = ks[Math.floor(Math.random() * ks.length)]; S.pw[k]++; toast('🎁 New power-up: ' + PWN[k][0] + ' ' + PWN[k][1] + '!'); sfx('pw'); }
+function addScore(g) {
+  if (!g) return; const b = lvl(); S.score += g; const a = lvl();
+  if (a !== b) { toast('⬆️ Level up! You are now a ' + a); sfx('star'); confetti(50); }
+  const el = $('#sc'); if (el) el.textContent = '⭐ ' + S.score;
+}
+
+/* ---------- sound, toast, confetti ---------- */
+let AC = null;
+function sfx(k) {
+  if (S.mute) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const seq = {ok:[[660, .09], [880, .14]], bad:[[220, .16], [165, .22]], star:[[523, .1], [659, .1], [784, .1], [1047, .25]], pw:[[784, .08], [988, .08], [1319, .18]], click:[[500, .04]]}[k];
+    let t = AC.currentTime;
+    seq.forEach(p => { const o = AC.createOscillator(), g = AC.createGain(); o.type = k === 'bad' ? 'sawtooth' : 'triangle'; o.frequency.value = p[0]; g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + p[1]); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + p[1]); t += p[1] * .9; });
+  } catch (e) {}
+}
+function toast(msg) {
+  const n = document.querySelectorAll('.toast').length, d = document.createElement('div');
+  d.className = 'toast'; d.textContent = msg; d.style.bottom = (22 + n * 58) + 'px'; document.body.appendChild(d);
+  setTimeout(() => { d.remove(); }, 3200);
+}
+function confetti(n) {
+  const cols = ['#f03e3e', '#f59f00', '#37b24d', '#1c7ed6', '#7048e8', '#e64980'];
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div'); d.className = 'cf';
+    d.style.left = Math.random() * 100 + 'vw'; d.style.background = cols[i % cols.length];
+    d.style.animationDuration = (1.8 + Math.random() * 1.6) + 's'; d.style.animationDelay = (Math.random() * .5) + 's';
+    document.body.appendChild(d); setTimeout(() => d.remove(), 4200);
+  }
+}
+document.addEventListener('click', e => {
+  const m = e.target.closest && e.target.closest('#mute');
+  if (m) { S.mute = !S.mute; m.textContent = S.mute ? '🔇' : '🔊'; save(); if (!S.mute) sfx('click'); }
+});
+
+function hud() {
+  return '<div class="hud noprint"><div class="t">' + S.av + ' ' + (S.name ? esc(S.name) + ' · ' : '') + lvl() + '</div><div><span class="pill" id="sc">⭐ ' + S.score + '</span> <span class="pill" id="st">🔥 ' + S.streak + '</span> <button class="pill" id="mute" aria-label="Turn sound on or off">' + (S.mute ? '🔇' : '🔊') + '</button></div></div>';
 }
 
 /* ---------- title ---------- */
+const AVS = ['🧑‍🔬', '🦊', '🐙', '🚀', '🦖', '🤖', '🐲', '🌟'];
+let pickAv = S.av;
 function showTitle() {
   run = null;
   const started = Object.keys(S.zones).length > 0 || S.run;
   screen('<div class="card hero pop"><div class="big">🧪🚀🌋</div><h1>Science Review Quest</h1>' +
-    '<p class="sub">TEKS review for grades 6–8 · about 1 hour · 10 zones</p>' +
-    '<div class="rules"><div>🎯 Answer questions in each zone to earn points and stars.</div><div>🔥 Back-to-back correct answers build a streak bonus.</div><div>💡 Hints help, but cost 25 points.</div><div>🔁 Missed questions return in the final Rematch Arena.</div></div>' +
-    (S.name ? '<p>Welcome back, <b>' + esc(S.name) + '</b>!</p>' : '<p><label for="nm"><b>Your name</b></label><br><input id="nm" type="text" maxlength="24" placeholder="First name and last initial" autocomplete="off"></p>') +
+    '<p class="sub">TEKS review for grades 6–8 · about 1 hour · 10 zones + 2 lab stations</p>' +
+    '<div class="rules"><div>🎯 Answer questions in each zone to earn points and stars.</div><div>🔥 Back-to-back correct answers build a streak bonus and earn power-ups.</div><div>💡 Hints help, but cost 25 points.</div><div>🔁 Missed questions return in the final Rematch Arena.</div></div>' +
+    (S.name ? '<p style="font-size:2.4rem;margin:6px 0">' + S.av + '</p><p>Welcome back, <b>' + esc(S.name) + '</b>!</p>' :
+      '<p><b>Pick your explorer</b></p><div class="avs">' + AVS.map(a => '<button class="avb ' + (a === pickAv ? 'sel' : '') + '" data-a="' + a + '" aria-label="Choose avatar ' + a + '">' + a + '</button>').join('') + '</div>' +
+      '<p><label for="nm"><b>Your name</b></label><br><input id="nm" type="text" maxlength="24" placeholder="First name and last initial" autocomplete="off"></p>') +
     '<div class="row"><button class="btn primary" id="go">' + (started ? 'Continue Quest ▶' : 'Start Quest ▶') + '</button>' + (started ? '<button class="btn warn" id="reset">Start over</button>' : '') + '</div></div>');
+  document.querySelectorAll('.avb').forEach(b => b.onclick = () => { pickAv = b.dataset.a; document.querySelectorAll('.avb').forEach(x => x.classList.toggle('sel', x === b)); sfx('click'); });
   $('#go').onclick = () => {
-    if (!S.name) { const v = ($('#nm').value || '').trim(); if (!v) { $('#nm').focus(); $('#nm').style.borderColor = '#e03131'; return; } S.name = v; }
-    S.last = Date.now(); save(); S.run ? resumeRun() : showHub();
+    if (!S.name) { const v = ($('#nm').value || '').trim(); if (!v) { $('#nm').focus(); $('#nm').style.borderColor = '#e03131'; return; } S.name = v; S.av = pickAv; }
+    S.last = Date.now(); save(); sfx('click'); S.run ? resumeRun() : showHub();
   };
   const r = $('#reset');
-  if (r) r.onclick = () => { if (confirm('Erase all your progress and start over?')) { S = fresh(); save(); showTitle(); } };
+  if (r) r.onclick = () => { if (confirm('Erase all your progress and start over?')) { const mute = S.mute; S = fresh(); S.mute = mute; pickAv = S.av; save(); showTitle(); } };
 }
 
 /* ---------- hub ---------- */
@@ -318,7 +395,7 @@ function showHub() {
   run = null;
   const done = ZONES.filter(z => S.zones[z.id]).length, all = done === ZONES.length;
   const pct = Math.round(done / ZONES.length * 100);
-  let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Complete all 10 zones to unlock the Rematch Arena. Pick a zone to begin.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete</div></div>';
+  let h = hud() + '<div class="card"><h2>Mission Map</h2><p class="sub">Complete all 10 zones to unlock the Rematch Arena. Lab stations are optional bonus missions.</p><div class="bar" aria-label="Progress"><i style="width:' + pct + '%"></i></div><div class="small">' + done + ' of ' + ZONES.length + ' zones complete · Power-ups: ' + Object.keys(PWN).map(k => PWN[k][0] + '×' + S.pw[k]).join(' ') + '</div></div>';
   if (S.run) h += '<div class="card" style="border-color:#ffc078"><b>⏸ You paused in the middle of a round.</b><div class="actions"><button class="btn primary" id="resume">Resume ▶</button></div></div>';
   h += '<div class="map">';
   ZONES.forEach((z, i) => {
@@ -326,11 +403,15 @@ function showHub() {
     h += '<button class="zone ' + (r ? 'done' : '') + '" data-zi="' + i + '"><div class="zi">' + z.icon + '</div><div class="zt">' + z.title + '</div><div class="zk">TEKS ' + z.teks + ' · Grade ' + z.grade + '</div><div class="zs">' + (r ? starStr(stars(r.c, r.t)) + ' ' + r.c + '/' + r.t : 'Not started') + '</div></button>';
   });
   const m = S.missed.length;
-  h += '<button class="zone boss ' + (all ? '' : 'locked') + '" id="boss"><div class="zi">🏆</div><div class="zt">Rematch Arena</div><div class="zk">Final round</div><div class="zs">' + (!all ? '🔒 Finish all zones' : m ? m + ' to redo' : 'Perfect! Nothing to redo') + '</div></button>';
-  h += '</div><div class="actions noprint" style="justify-content:center;margin-top:18px"><button class="btn" id="rep">📋 My report card</button></div>';
+  h += '<button class="zone boss ' + (all ? '' : 'locked') + '" id="boss"><div class="zi">🏆</div><div class="zt">Rematch Arena</div><div class="zk">Final round</div><div class="zs">' + (!all ? '🔒 Finish all zones' : m ? m + ' to redo' : 'Perfect! Nothing to redo') + '</div></button></div>';
+  h += '<h3 style="margin:20px 4px 8px">🔬 Lab Stations <span class="small">optional · +150 bonus points each</span></h3><div class="map">' +
+    '<button class="zone lab ' + (S.labs.force ? 'done' : '') + '" id="labF"><div class="zi">⚙️</div><div class="zt">Force &amp; Motion Lab</div><div class="zk">TEKS 8.7A · simulation</div><div class="zs">' + (S.labs.force ? '✅ Bonus earned' : '+150 bonus') + '</div></button>' +
+    '<button class="zone lab ' + (S.labs.plates ? 'done' : '') + '" id="labP"><div class="zi">🌋</div><div class="zt">Plate Boundary Lab</div><div class="zk">TEKS 7.10B · simulation</div><div class="zs">' + (S.labs.plates ? '✅ Bonus earned' : '+150 bonus') + '</div></button></div>';
+  h += '<div class="actions noprint" style="justify-content:center;margin-top:18px"><button class="btn" id="rep">📋 My report card</button></div>';
   screen(h);
   document.querySelectorAll('.zone[data-zi]').forEach(b => b.onclick = () => { if (S.run) return resumeRun(); showIntro(+b.dataset.zi); });
   $('#boss').onclick = () => { if (!all) return; if (S.run) return resumeRun(); if (!m) return showReport(); startRun('rematch', shuffle(S.missed.map(x => x.slice()))); };
+  $('#labF').onclick = showForceLab; $('#labP').onclick = showPlateLab;
   $('#rep').onclick = showReport;
   const rs = $('#resume'); if (rs) rs.onclick = resumeRun;
 }
@@ -347,29 +428,66 @@ function showIntro(zi) {
 
 /* ---------- run control ---------- */
 function startRun(mode, items) {
-  S.run = {mode: mode, items: items, i: 0, c: 0, pts: 0};
-  run = S.run; run.cur = 0; run.answered = false; run.hint = false;
-  tick(); save(); showQ();
+  S.run = {mode: mode, items: items, i: 0, c: 0, pts: 0, shield: false};
+  run = S.run; tick(); save(); showQ();
 }
-function resumeRun() { run = S.run; run.answered = false; run.hint = false; showQ(); }
+function resumeRun() { run = S.run; showQ(); }
+
+function updPW() {
+  if (!curQ || !run) return;
+  const prac = run.mode === 'practice', ans = run.answered;
+  const f = $('#pwF'), s = $('#pwS'), h = $('#pwH'); if (!f) return;
+  f.textContent = '✂️ 50/50 ×' + S.pw.fifty; f.disabled = prac || ans || curQ.type !== 'mc' || S.pw.fifty < 1 || !!run.fifty;
+  s.textContent = '⏭ Skip ×' + S.pw.skip; s.disabled = prac || ans || S.pw.skip < 1;
+  h.textContent = run.shield ? '🛡 Shield ON' : '🛡 Shield ×' + S.pw.shield; h.classList.toggle('on', !!run.shield); h.disabled = prac || ans || (S.pw.shield < 1 && !run.shield);
+}
 
 function showQ() {
   tick();
-  run.cur = run.i; run.answered = false; run.hint = false;
-  const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]];
+  run.cur = run.i; run.answered = false; run.hint = false; run.fifty = false;
+  const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]]; curQ = q;
   const label = run.mode === 'rematch' ? '🏆 Rematch Arena' : z.icon + ' ' + z.title + (run.mode === 'practice' ? ' (practice)' : '');
   screen(hud() + '<div class="card"><div class="small"><b>' + label + '</b> · Question ' + (run.cur + 1) + ' of ' + run.items.length + '</div>' +
     '<div class="bar"><i style="width:' + Math.round(run.cur / run.items.length * 100) + '%"></i></div>' +
     '<span class="badge">TEKS ' + z.teks + '</span><h2 class="qtext">' + q.q + '</h2>' + (q.vis ? q.vis() : '') +
     '<div id="ans"></div><div class="actions" id="acts"><button class="btn warn" id="hintBtn">💡 Hint (−25 pts)</button><button class="btn" id="pause">⏸ Save &amp; exit</button></div>' +
+    '<div class="pws noprint"><span class="small">Power-ups:</span><button class="pwb" id="pwF">✂️</button><button class="pwb" id="pwS">⏭</button><button class="pwb" id="pwH">🛡</button></div>' +
     '<div id="hint" class="hint" hidden></div><div id="fb"></div></div>');
   $('#hintBtn').onclick = () => { if (run.answered) return; run.hint = true; const h = $('#hint'); h.hidden = false; h.innerHTML = '💡 ' + q.hint; $('#hintBtn').disabled = true; };
   $('#pause').onclick = () => { save(); showHub(); };
   const ans = $('#ans');
+  $('#pwF').onclick = () => {
+    if (run.answered || curQ.type !== 'mc' || S.pw.fifty < 1 || run.fifty || run.mode === 'practice') return;
+    const wrong = shuffle(Array.from(ans.querySelectorAll('.opt')).filter(b => +b.dataset.oi !== q.ans && !b.disabled)).slice(0, 2);
+    wrong.forEach(b => { b.disabled = true; b.classList.add('gone'); });
+    S.pw.fifty--; run.fifty = true; save(); sfx('pw'); updPW();
+  };
+  $('#pwS').onclick = () => {
+    if (run.answered || S.pw.skip < 1 || run.mode === 'practice') return;
+    S.pw.skip--; ans.querySelectorAll('button,input,select').forEach(x => x.disabled = true);
+    resolve(false, '<b>Skipped.</b> ' + answerText(q), {skip:true});
+  };
+  $('#pwH').onclick = () => { if (run.answered || run.mode === 'practice') return; run.shield = !run.shield; save(); sfx('click'); updPW(); };
   if (q.type === 'mc') buildMC(q, ans);
   else if (q.type === 'num') buildNum(q, ans);
   else if (q.type === 'order') buildOrder(q, ans);
   else if (q.type === 'match') buildMatch(q, ans);
+  updPW();
+}
+
+function answerText(q) {
+  if (q.type === 'mc') return q.opts[q.ans].indexOf('<svg') === 0 ? 'The correct choice is the straight, slanted line.' : 'Correct answer: <b>' + q.opts[q.ans] + '</b>';
+  if (q.type === 'num') return 'Correct answer: <b>' + q.ans + ' ' + q.unit + '</b>';
+  if (q.type === 'order') return 'Correct order: <ol>' + q.items.map(t => '<li>' + t + '</li>').join('') + '</ol>';
+  return 'Correct matches: <ul>' + q.pairs.map(p => '<li>' + p[0] + ' → <b>' + p[1] + '</b></li>').join('') + '</ul>';
+}
+
+/* Shield: absorbs one wrong answer (no penalty) and lets the student try again */
+function shielded(ok) {
+  if (ok || run.answered || !run.shield || run.mode === 'practice') return false;
+  run.shield = false; S.pw.shield--; save(); sfx('pw');
+  $('#fb').innerHTML = '<div class="fb pop skip"><b>🛡 Shield saved you!</b> No penalty and your streak is safe. Try again.</div>';
+  updPW(); return true;
 }
 
 /* ---------- question types ---------- */
@@ -380,6 +498,7 @@ function buildMC(q, ans) {
   ans.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     if (run.answered) return;
     const oi = +b.dataset.oi, ok = oi === q.ans;
+    if (shielded(ok)) { b.disabled = true; b.classList.add('wrong'); return; }
     ans.querySelectorAll('.opt').forEach(x => { x.disabled = true; if (+x.dataset.oi === q.ans) x.classList.add('right'); });
     if (!ok) b.classList.add('wrong');
     resolve(ok, gr ? 'The highlighted graph is the correct one.' : 'Correct answer: <b>' + q.opts[q.ans] + '</b>');
@@ -395,6 +514,7 @@ function buildNum(q, ans) {
     const v = parseFloat(inp.value.replace(/,/g, '').trim());
     if (isNaN(v)) { $('#err').textContent = 'Please type a number first.'; return; }
     const ok = Math.abs(v - q.ans) <= (q.tol !== undefined ? q.tol : 0.01);
+    if (shielded(ok)) { inp.value = ''; inp.focus(); return; }
     inp.disabled = true; $('#chk').disabled = true;
     resolve(ok, 'Correct answer: <b>' + q.ans + ' ' + q.unit + '</b>' + (ok ? '' : ' (you typed ' + esc(inp.value) + ')'));
   };
@@ -409,11 +529,12 @@ function buildOrder(q, ans) {
       Array.from({length: left}, (_, k) => '<div class="slot">' + (picked.length + k + 1) + '.</div>').join('') + '</div>' +
       '<div class="pool">' + pool.filter(oi => picked.indexOf(oi) < 0).map(oi => '<button class="chip" data-oi="' + oi + '">' + q.items[oi] + '</button>').join('') + '</div>' +
       '<button class="btn primary" id="chk"' + (left ? ' disabled' : '') + '>Check order</button>';
-    ans.querySelectorAll('.chip').forEach(b => b.onclick = () => { picked.push(+b.dataset.oi); draw(); });
+    ans.querySelectorAll('.chip').forEach(b => b.onclick = () => { picked.push(+b.dataset.oi); sfx('click'); draw(); });
     ans.querySelectorAll('.slot.filled').forEach(b => b.onclick = () => { picked.splice(+b.dataset.k, 1); draw(); });
     $('#chk').onclick = () => {
       if (run.answered) return;
       const ok = picked.every((oi, k) => oi === k);
+      if (shielded(ok)) { picked = []; draw(); return; }
       ans.querySelectorAll('button').forEach(x => x.disabled = true);
       resolve(ok, 'Correct order: <ol>' + q.items.map(t => '<li>' + t + '</li>').join('') + '</ol>');
     };
@@ -427,54 +548,69 @@ function buildMatch(q, ans) {
     if (run.answered) return;
     const sels = Array.from(ans.querySelectorAll('select'));
     if (sels.some(s => !s.value)) { $('#err').textContent = 'Choose an answer for every row.'; return; }
-    let ok = true;
-    sels.forEach((s, i) => { const good = s.value === q.pairs[i][1]; if (!good) ok = false; s.disabled = true; s.closest('.mrow').classList.add(good ? 'right' : 'wrong'); });
+    const ok = sels.every((s, i) => s.value === q.pairs[i][1]);
+    if (shielded(ok)) { sels.forEach(s => { s.value = ''; }); return; }
+    sels.forEach((s, i) => { s.disabled = true; s.closest('.mrow').classList.add(s.value === q.pairs[i][1] ? 'right' : 'wrong'); });
     $('#chk').disabled = true;
     resolve(ok, ok ? '' : 'Correct matches: <ul>' + q.pairs.map(p => '<li>' + p[0] + ' → <b>' + p[1] + '</b></li>').join('') + '</ul>');
   };
 }
 
 /* ---------- scoring & feedback ---------- */
-function resolve(ok, detail) {
+function resolve(ok, detail, opt) {
+  opt = opt || {};
   if (run.answered) return;
   run.answered = true; tick();
   const it = run.items[run.cur], z = ZONES[it[0]], q = z.qs[it[1]];
   let gain = 0, note = '';
   if (run.mode === 'zone') {
     const t = S.teks[z.teks] || (S.teks[z.teks] = {c:0, t:0, r:0}); t.t++;
-    if (ok) { t.c++; S.streak++; S.best = Math.max(S.best, S.streak); const bonus = Math.min(S.streak - 1, 5) * 20; gain = (run.hint ? 75 : 100) + bonus; run.c++; note = bonus ? ' (includes +' + bonus + ' streak bonus)' : ''; }
+    if (opt.skip) { if (!S.missed.some(m => m[0] === it[0] && m[1] === it[1])) S.missed.push([it[0], it[1]]); }
+    else if (ok) { t.c++; S.streak++; S.best = Math.max(S.best, S.streak); const bonus = Math.min(S.streak - 1, 5) * 20; gain = (run.hint ? 75 : 100) + bonus; run.c++; note = bonus ? ' (includes +' + bonus + ' streak bonus)' : ''; }
     else { S.streak = 0; if (!S.missed.some(m => m[0] === it[0] && m[1] === it[1])) S.missed.push([it[0], it[1]]); }
   } else if (run.mode === 'rematch') {
-    if (ok) { gain = 50; S.missed = S.missed.filter(m => !(m[0] === it[0] && m[1] === it[1])); const t = S.teks[z.teks]; if (t) t.r++; run.c++; S.streak++; S.best = Math.max(S.best, S.streak); }
+    if (opt.skip) { /* stays in the missed list */ }
+    else if (ok) { gain = 50; S.missed = S.missed.filter(m => !(m[0] === it[0] && m[1] === it[1])); const t = S.teks[z.teks]; if (t) t.r++; run.c++; S.streak++; S.best = Math.max(S.best, S.streak); }
     else S.streak = 0;
-  } else { if (ok) run.c++; }
-  S.score += gain; run.pts += gain;
+  } else if (ok && !opt.skip) run.c++;
+  run.pts += gain; addScore(gain);
   run.i = run.cur + 1; save();
+  const st = $('#st'); if (st) st.textContent = '🔥 ' + S.streak;
+  if (!opt.skip) sfx(ok ? 'ok' : 'bad');
+  if (ok && !opt.skip && run.mode !== 'practice') {
+    if (S.streak >= 5) award('streak5');
+    if (S.streak > 0 && S.streak % 5 === 0) { grantPW(); confetti(30); }
+  }
   const last = run.i >= run.items.length;
-  const fb = $('#fb');
-  fb.innerHTML = '<div class="fb pop ' + (ok ? 'ok' : 'bad') + '"><h3>' + (ok ? '✅ Correct!' + (gain ? ' +' + gain + ' pts' : '') : '❌ Not quite') + '</h3>' + (gain && note ? '<div class="small">' + note + '</div>' : '') +
+  const cls = opt.skip ? 'skip' : ok ? 'ok' : 'bad';
+  $('#fb').innerHTML = '<div class="fb pop ' + cls + '"><h3>' + (opt.skip ? '⏭ Skipped — streak kept' : ok ? '✅ Correct!' + (gain ? ' +' + gain + ' pts' : '') : '❌ Not quite') + '</h3>' + (gain && note ? '<div class="small">' + note + '</div>' : '') +
     (detail ? '<div>' + detail + '</div>' : '') + '<p style="margin:8px 0 0"><b>Why:</b> ' + q.why + '</p>' +
-    (!ok && run.mode === 'zone' ? '<div class="small" style="margin-top:6px">This question will come back in the Rematch Arena.</div>' : '') +
+    ((!ok || opt.skip) && run.mode === 'zone' ? '<div class="small" style="margin-top:6px">This question will come back in the Rematch Arena.</div>' : '') +
     '<div class="actions"><button class="btn primary" id="nextBtn">' + (last ? 'Finish ▶' : 'Next ▶') + '</button></div></div>';
-  $('#hintBtn').disabled = true;
+  $('#hintBtn').disabled = true; updPW();
   const nb = $('#nextBtn'); nb.focus();
   nb.onclick = () => { last ? endRun() : showQ(); };
-  document.querySelector('.hud .pill').textContent = '⭐ ' + S.score;
 }
 
 function endRun() {
   const r = run; run = null; S.run = null; tick();
   if (r.mode === 'zone') {
-    const z = ZONES[r.items[0][0]]; S.zones[z.id] = {c:r.c, t:r.items.length, pts:r.pts}; save();
-    const n = stars(r.c, r.items.length), allDone = ZONES.every(x => S.zones[x.id]);
+    const z = ZONES[r.items[0][0]]; S.zones[z.id] = {c:r.c, t:r.items.length, pts:r.pts};
+    const n = stars(r.c, r.items.length), allDone = ZONES.every(x => S.zones[x.id]), perfect = r.c === r.items.length;
+    save(); sfx('star'); confetti(n === 3 ? 90 : n === 2 ? 40 : 15);
+    if (perfect) { award('perfect'); S.pw.fifty++; }
+    if (Object.keys(S.zones).filter(k => stars(S.zones[k].c, S.zones[k].t) === 3).length >= 5) award('stars');
+    if (allDone) award('quest');
+    save();
     screen(hud() + '<div class="card hero pop"><div class="big">' + z.icon + '</div><h1>Zone complete!</h1><div class="stars" style="color:#f59f00">' + starStr(n) + '</div>' +
       '<p><b>' + r.c + ' of ' + r.items.length + '</b> correct · +' + r.pts + ' points</p>' +
-      (r.c < r.items.length ? '<p class="sub">Missed questions will return in the Rematch Arena.</p>' : '<p class="sub">Perfect zone! 🎉</p>') +
+      (perfect ? '<p class="sub">Perfect zone! 🎉 You earned a bonus ✂️ 50/50 power-up.</p>' : '<p class="sub">Missed or skipped questions will return in the Rematch Arena.</p>') +
       (allDone ? '<p><b>🏆 All zones done — the Rematch Arena is unlocked!</b></p>' : '') +
       '<div class="row"><button class="btn primary" id="hub">Back to the map ▶</button></div></div>');
     $('#hub').onclick = showHub;
   } else if (r.mode === 'rematch') {
-    S.rematchDone = true; save();
+    S.rematchDone = true; if (r.c === r.items.length && r.items.length) award('comeback');
+    save(); sfx('star'); confetti(r.c === r.items.length ? 90 : 30);
     screen(hud() + '<div class="card hero pop"><div class="big">🏆</div><h1>Rematch complete!</h1><p><b>' + r.c + ' of ' + r.items.length + '</b> recovered · +' + r.pts + ' points</p>' +
       (S.missed.length ? '<p class="sub">' + S.missed.length + ' still to master. You can run the Rematch Arena again.</p>' : '<p class="sub">You got every question right at least once. Outstanding!</p>') +
       '<div class="row"><button class="btn" id="hub">Back to the map</button><button class="btn primary" id="rep">See my report card ▶</button></div></div>');
@@ -491,14 +627,17 @@ function showReport() {
   const rank = !allDone ? 'Quest in progress 🧭' : acc >= 95 ? 'Nobel Prize Contender 🏆' : acc >= 85 ? 'Lead Scientist 🔬' : acc >= 70 ? 'Research Scientist 🧪' : acc >= 55 ? 'Lab Technician 🥼' : 'Rookie Researcher 🌱';
   const mins = Math.max(1, Math.round(S.ms / 60000));
   const status = p => p >= 80 ? ['Mastered ✅', '#2f9e44'] : p >= 60 ? ['Almost there 🟡', '#f59f00'] : ['Review again 🔴', '#e03131'];
-  let h = hud() + '<div class="card"><h2>📋 Report Card — ' + esc(S.name || 'Scientist') + '</h2><p class="sub">' + rank + '</p>' +
+  let h = hud() + '<div class="card"><h2>📋 Report Card — ' + esc(S.name || 'Scientist') + '</h2><p class="sub">' + rank + ' · Level: ' + lvl() + '</p>' +
     '<div class="stat"><div><b>' + S.score + '</b>points</div><div><b>' + acc + '%</b>first-try accuracy</div><div><b>' + S.best + '</b>best streak</div><div><b>' + mins + ' min</b>play time</div></div>' +
     '<table class="rep"><tr><th>TEKS</th><th>First try</th><th></th><th>After rematch</th><th>Status</th></tr>';
   rows.forEach(x => {
     const p = Math.round(x.t.c / x.t.t * 100), fp = Math.round(Math.min(x.t.c + x.t.r, x.t.t) / x.t.t * 100), s = status(fp);
     h += '<tr><td><b>' + x.z.teks + '</b></td><td>' + x.t.c + '/' + x.t.t + ' (' + p + '%)</td><td><div class="meter"><i style="width:' + p + '%;background:' + status(p)[1] + '"></i></div></td><td>' + fp + '%</td><td style="color:' + s[1] + ';font-weight:700">' + s[0] + '</td></tr>';
   });
-  h += '</table>' + (rows.length ? '' : '<p class="sub">Play a zone to see results here.</p>') + '<div class="actions noprint"><button class="btn" id="hub">← Map</button><button class="btn primary" id="print">🖨 Print / Save as PDF</button></div></div>';
+  h += '</table>' + (rows.length ? '' : '<p class="sub">Play a zone to see results here.</p>') +
+    '<h3 style="margin-top:16px">Badges</h3><div class="badges">' + Object.keys(BADGES).map(k => '<div class="bdg ' + (S.badges[k] ? '' : 'off') + '" title="' + BADGES[k][2] + '">' + BADGES[k][0] + ' ' + BADGES[k][1] + '</div>').join('') + '</div>' +
+    '<p class="small">Lab stations: ' + (S.labs.force ? '✅' : '⬜') + ' Force &amp; Motion · ' + (S.labs.plates ? '✅' : '⬜') + ' Plate Boundary</p>' +
+    '<div class="actions noprint"><button class="btn" id="hub">← Map</button><button class="btn primary" id="print">🖨 Print / Save as PDF</button></div></div>';
   screen(h);
   $('#hub').onclick = showHub; $('#print').onclick = () => window.print();
 }
@@ -508,9 +647,210 @@ document.addEventListener('keydown', e => {
   if (!run) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'SELECT') return;
-  if (!run.answered && e.key >= '1' && e.key <= '9') { const b = document.querySelectorAll('.opt')[+e.key - 1]; if (b) b.click(); }
+  if (!run.answered && e.key >= '1' && e.key <= '9') { const b = document.querySelectorAll('.opt')[+e.key - 1]; if (b && !b.disabled) b.click(); }
   else if (run.answered && e.key === 'Enter' && tag !== 'BUTTON') { const n = $('#nextBtn'); if (n) n.click(); }
 });
+/* ---------- lab stations ---------- */
+function labBonus(key) {
+  if (S.labs[key]) return;
+  S.labs[key] = true; addScore(150); sfx('star'); confetti(80);
+  toast('🧪 Lab complete! +150 bonus points');
+  if (S.labs.force && S.labs.plates) award('labs');
+  save();
+}
+
+/* ===== Lab 1: Force & Motion (8.7A) ===== */
+function drawCart(cx, sim, F, m) {
+  if (!cx) return;
+  cx.clearRect(0, 0, 640, 190);
+  cx.fillStyle = '#e7f5ff'; cx.fillRect(0, 0, 640, 190);
+  cx.fillStyle = '#868e96'; cx.fillRect(20, 140, 600, 8);
+  cx.font = '700 12px system-ui,Arial,sans-serif'; cx.textAlign = 'center'; cx.fillStyle = '#495057';
+  for (let k = 0; k <= 50; k += 10) { const x = 30 + k / 50 * 580; cx.fillRect(x - 1, 140, 2, 14); cx.fillText(k + ' m', x, 170); }
+  const w = 30 + m * 1.5, x = 30 + Math.min(sim.d, 50) / 50 * 580;
+  cx.fillStyle = '#3b5bdb'; cx.fillRect(x - w / 2, 140 - 30, w, 24);
+  cx.fillStyle = '#212529'; cx.beginPath(); cx.arc(x - w / 2 + 8, 140 - 4, 7, 0, 7); cx.arc(x + w / 2 - 8, 140 - 4, 7, 0, 7); cx.fill();
+  cx.fillStyle = '#fff'; cx.fillText(m + ' kg', x, 140 - 13);
+  const L = F * 0.5; cx.strokeStyle = '#e8590c'; cx.fillStyle = '#e8590c'; cx.lineWidth = 5;
+  const sx = Math.max(x - w / 2 - L, 4), ex = x - w / 2 - 2;
+  if (ex - sx > 8) { cx.beginPath(); cx.moveTo(sx, 100); cx.lineTo(ex - 8, 100); cx.stroke(); cx.beginPath(); cx.moveTo(ex, 100); cx.lineTo(ex - 12, 92); cx.lineTo(ex - 12, 108); cx.closePath(); cx.fill(); }
+  cx.textAlign = 'left'; cx.fillStyle = '#e8590c'; cx.font = '700 14px system-ui,Arial,sans-serif'; cx.fillText(F + ' N', Math.min(sx, 560), 84);
+  if (sim.off) { cx.fillStyle = '#e03131'; cx.textAlign = 'right'; cx.fillText('Reached the end of the 50 m track!', 630, 24); }
+}
+
+function showForceLab() {
+  const M = [!!S.labs.force, !!S.labs.force, !!S.labs.force];
+  const MS = ['Launch the cart with an acceleration of exactly <b>5 m/s²</b>.', 'Launch a <b>10 kg</b> cart so that it accelerates at <b>2 m/s²</b>.', 'Launch the cart. Then launch it again with the <b>same force</b> but <b>double the mass</b>. What happens to the acceleration?'];
+  screen(hud() + '<div class="card"><span class="badge">TEKS 8.7A</span> <span class="badge">Lab Station</span><h2>⚙️ Force &amp; Motion Lab</h2>' +
+    '<p class="sub">Newton’s Second Law: <b>a = F ÷ m</b>. Choose the net force and the mass, then launch the cart down the 50 m track for up to 4 seconds.</p>' +
+    '<canvas id="cv" class="cv" width="640" height="190" aria-label="Cart on a 50 meter track"></canvas>' +
+    '<div class="ctl"><label>Net force: <b id="fv">20</b> N<input type="range" id="F" min="5" max="100" step="5" value="20"></label><label>Mass: <b id="mv">4</b> kg<input type="range" id="Mm" min="1" max="20" step="1" value="4"></label></div>' +
+    '<div class="readout" id="ro"></div><div class="readout" id="live">Press Launch!</div>' +
+    '<div class="actions"><button class="btn primary" id="launch">🚀 Launch</button><button class="btn" id="rst">Reset cart</button></div>' +
+    '<h3 style="margin-top:16px">Missions</h3><ul class="missions" id="ms"></ul><div id="labmsg"></div><div class="actions"><button class="btn" id="back">← Back to map</button></div></div>');
+  const sim = {t:0, a:0, v:0, d:0, run:false, off:false}; let prev = {F:0, m:0};
+  const cv = $('#cv'), cx = cv.getContext ? cv.getContext('2d') : null;
+  const Fs = $('#F'), Ms = $('#Mm');
+  const vals = () => ({F:+Fs.value, m:+Ms.value});
+  function ro() { const v = vals(); $('#fv').textContent = v.F; $('#mv').textContent = v.m; $('#ro').innerHTML = 'Acceleration = ' + v.F + ' N ÷ ' + v.m + ' kg = <b>' + +(v.F / v.m).toFixed(2) + ' m/s²</b>'; }
+  function missions() { $('#ms').innerHTML = MS.map((t, i) => '<li class="' + (M[i] ? 'done' : '') + '">' + (M[i] ? '✅ ' : '⬜ ') + t + '</li>').join(''); }
+  Fs.oninput = Ms.oninput = () => { if (!sim.run) { sim.d = 0; sim.t = 0; sim.v = 0; sim.off = false; } ro(); };
+  $('#launch').onclick = () => {
+    const v = vals(); sim.a = v.F / v.m; sim.t = 0; sim.d = 0; sim.v = 0; sim.off = false; sim.run = true; sim.F = v.F; sim.m = v.m; sfx('click');
+    const a = sim.a;
+    if (Math.abs(a - 5) < 1e-9) M[0] = true;
+    if (v.m === 10 && Math.abs(a - 2) < 1e-9) M[1] = true;
+    let msg = '';
+    if (prev.F === v.F && v.m === prev.m * 2) { M[2] = true; msg = '<div class="fb ok"><b>Notice:</b> the same force on double the mass gave <b>half</b> the acceleration. That is a = F ÷ m in action!</div>'; }
+    prev = {F:v.F, m:v.m}; $('#labmsg').innerHTML = msg; missions();
+    if (M.every(x => x) && !S.labs.force) labBonus('force');
+  };
+  $('#rst').onclick = () => { sim.run = false; sim.d = 0; sim.t = 0; sim.v = 0; sim.off = false; $('#live').textContent = 'Press Launch!'; };
+  $('#back').onclick = showHub;
+  ro(); missions();
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, .05); last = now;
+    if (sim.run) {
+      const tn = sim.t + dt;
+      if (.5 * sim.a * tn * tn >= 50) { sim.t = Math.sqrt(100 / sim.a); sim.d = 50; sim.off = true; sim.run = false; }
+      else if (tn >= 4) { sim.t = 4; sim.d = .5 * sim.a * 16; sim.run = false; }
+      else { sim.t = tn; sim.d = .5 * sim.a * tn * tn; }
+      sim.v = sim.a * sim.t;
+      $('#live').innerHTML = (sim.run ? '⏱ ' : '🏁 Finished: ') + 'time = <b>' + sim.t.toFixed(1) + ' s</b> · speed = <b>' + sim.v.toFixed(1) + ' m/s</b> · distance = <b>' + sim.d.toFixed(1) + ' m</b>';
+    }
+    const v = sim.run || sim.t ? {F:sim.F, m:sim.m} : vals();
+    drawCart(cx, sim, v.F, v.m);
+    labRAF = requestAnimationFrame(frame);
+  }
+  labRAF = requestAnimationFrame(frame);
+}
+
+/* ===== Lab 2: Plate Boundaries (7.10B) ===== */
+function polyPoint(pts, u) {
+  const segs = []; let tot = 0;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); segs.push(l); tot += l; }
+  let d = u * tot;
+  for (let i = 0; i < segs.length; i++) { if (d <= segs[i]) { const f = d / segs[i]; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; } d -= segs[i]; }
+  return pts[pts.length - 1];
+}
+
+function drawPlates(cx, mode, t) {
+  if (!cx) return;
+  const W = 640, H = 300;
+  const R = (x, y, w, h, c) => { cx.fillStyle = c; cx.fillRect(x, y, w, h); };
+  const P = (pts, c) => { cx.fillStyle = c; cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) cx.lineTo(pts[i][0], pts[i][1]); cx.closePath(); cx.fill(); };
+  const C = (x, y, r, c) => { cx.fillStyle = c; cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.fill(); };
+  const T = (s, x, y, sz, c, al) => { cx.fillStyle = c || '#212529'; cx.font = '700 ' + (sz || 14) + 'px system-ui,Arial,sans-serif'; cx.textAlign = al || 'left'; cx.fillText(s, x, y); };
+  const A = (x1, y1, x2, y2, c) => {
+    const ang = Math.atan2(y2 - y1, x2 - x1); cx.strokeStyle = c; cx.fillStyle = c; cx.lineWidth = 6;
+    cx.beginPath(); cx.moveTo(x1, y1); cx.lineTo(x2 - 10 * Math.cos(ang), y2 - 10 * Math.sin(ang)); cx.stroke();
+    cx.beginPath(); cx.moveTo(x2, y2); cx.lineTo(x2 - 16 * Math.cos(ang - .45), y2 - 16 * Math.sin(ang - .45)); cx.lineTo(x2 - 16 * Math.cos(ang + .45), y2 - 16 * Math.sin(ang + .45)); cx.closePath(); cx.fill();
+  };
+  cx.save();
+  if (mode === 'div') {
+    R(0, 0, W, H, '#e7f5ff'); R(0, 100, W, 50, '#74c0fc'); R(0, 190, W, 110, '#e8590c');
+    const g = Math.min(t * 14, 230), c = 320;
+    R(0, 150, c - g, 40, '#8d6e63'); R(c + g, 150, W - c - g, 40, '#8d6e63'); R(c - g, 150, 2 * g, 40, '#b08968');
+    P([[c - g * .7 - 10, 150], [c, 132], [c + g * .7 + 10, 150]], '#b08968'); R(c - 4, 150, 8, 40, '#ff6b6b');
+    for (let k = 0; k < 3; k++) C(c, 190 - ((t * 30 + k * 20) % 60), 3, '#ffa8a8');
+    A(120, 172, 40, 172, '#fff'); A(520, 172, 600, 172, '#fff');
+    T('Mid-ocean ridge', c, 62, 16, '#212529', 'center'); T('Magma rises and cools into new ocean floor', c, 84, 13, '#212529', 'center');
+    T('Mantle', 20, 250, 15, '#fff');
+  } else if (mode === 'occ') {
+    R(0, 0, W, H, '#e7f5ff'); R(0, 150, W, 150, '#e8590c'); R(0, 110, 300, 40, '#74c0fc');
+    P([[0, 150], [280, 150], [460, 300], [460, 328], [280, 178], [0, 178]], '#8d6e63');
+    P([[300, 110], [640, 110], [640, 168], [300, 168]], '#a1887f'); R(300, 106, 340, 8, '#69db7c');
+    P([[430, 106], [480, 58], [530, 106]], '#5c3d2e'); C(480, 148, 15, '#ff6b6b'); R(477, 66, 6, 82, '#ff6b6b');
+    const path = [[0, 164], [280, 164], [460, 314]];
+    for (let k = 0; k < 6; k++) { const p = polyPoint(path, ((t * .1) + k / 6) % 1); C(p[0], p[1], 4, '#fff'); }
+    for (let k = 0; k < 4; k++) { const ph = ((t * .8) + k / 4) % 1; cx.globalAlpha = 1 - ph; C(480 + Math.sin(k * 2 + t) * 6, 56 - ph * 42, 4 + ph * 12, k % 2 ? '#adb5bd' : '#ff8787'); cx.globalAlpha = 1; }
+    T('Oceanic plate sinks', 24, 100, 14, '#0b3d66'); T('Trench', 276, 96, 14, '#0b3d66', 'center'); T('Volcano', 480, 36, 14, '#212529', 'center'); T('Continental plate', 560, 150, 13, '#fff', 'center');
+  } else if (mode === 'ccc') {
+    R(0, 0, W, H, '#e7f5ff'); R(0, 190, W, 110, '#e8590c');
+    const h = Math.min(t * 9, 85);
+    P([[0, 130], [230, 130], [285, 130 - h * .6], [320, 130 - h], [355, 130 - h * .6], [410, 130], [640, 130], [640, 190], [410, 190], [355, 190 + h * .5], [320, 190 + h * .7], [285, 190 + h * .5], [230, 190], [0, 190]], '#c4a484');
+    R(0, 126, 230, 6, '#69db7c'); R(410, 126, 230, 6, '#69db7c');
+    if (h > 55) P([[320, 130 - h], [306, 130 - h + 18], [334, 130 - h + 18]], '#fff');
+    A(50, 160, 140, 160, '#fff'); A(590, 160, 500, 160, '#fff');
+    T('Two continental plates collide', 320, 250, 15, '#fff', 'center'); T('The crust crumples and is pushed upward', 320, 272, 13, '#fff', 'center');
+    if (h > 20) T('Mountains', 320, 130 - h - 10, 14, '#212529', 'center');
+  } else if (mode === 'trn') {
+    const c5 = t % 5, stress = Math.min(c5 / 4, 1), quakes = Math.floor((t + 1) / 5), off = quakes * 20;
+    const quake = c5 >= 4 && c5 < 4.5;
+    if (quake) cx.translate((Math.random() - .5) * 12, (Math.random() - .5) * 8);
+    else if (stress > .75) cx.translate((Math.random() - .5) * 3, 0);
+    R(-20, -20, W + 40, H + 40, '#d3f9d8'); R(-20, 20, W + 40, 128, '#c4a484'); R(-20, 156, W + 40, 128, '#b08968'); R(-20, 148, W + 40, 8, '#343a40');
+    cx.strokeStyle = '#fff'; cx.lineWidth = 8; cx.setLineDash([14, 10]);
+    cx.beginPath(); cx.moveTo(320 + off / 2, 20); cx.lineTo(320 + off / 2, 148); cx.stroke();
+    cx.beginPath(); cx.moveTo(320 - off / 2, 156); cx.lineTo(320 - off / 2, 284); cx.stroke(); cx.setLineDash([]);
+    A(440, 84, 600, 84, '#fff'); A(200, 220, 40, 220, '#fff');
+    T('Top view — the white road is being split by the fault', 320, 14, 13, '#212529', 'center'); T('Fault', 24, 168, 12, '#fff');
+    cx.restore(); cx.save();
+    R(440, 264, 190, 22, '#fff'); R(442, 266, 186 * stress, 18, stress > .8 ? '#e03131' : stress > .5 ? '#f59f00' : '#37b24d');
+    T('Stress', 436, 281, 13, '#212529', 'right');
+    if (quake) T('💥 EARTHQUAKE!', 320, 118, 30, '#e03131', 'center');
+  } else if (mode === 'hot') {
+    R(0, 0, W, H, '#e7f5ff'); R(0, 110, W, 40, '#74c0fc'); R(0, 150, W, 36, '#8d6e63'); R(0, 186, W, 114, '#e8590c');
+    R(190, 186, 20, 114, '#ff6b6b'); C(200, 186, 26, 'rgba(255,107,107,.6)');
+    const TT = t + 9;
+    for (let k = 0; k * 3 <= TT; k++) {
+      const age = TT - k * 3, x = 200 + 22 * age; if (x > 690) continue;
+      const hh = Math.min(age * 28, 70) * Math.max(.3, 1 - age / 30);
+      P([[x - 30, 150], [x, 150 - hh], [x + 30, 150]], '#5c3d2e');
+      if (age < 1.8) for (let j = 0; j < 3; j++) { const ph = ((t * 1.2) + j / 3) % 1; cx.globalAlpha = 1 - ph; C(x + Math.sin(j * 3 + t) * 5, 150 - hh - ph * 24, 3 + ph * 8, '#ff8787'); cx.globalAlpha = 1; }
+    }
+    R(0, 150, W, 0, '#000');
+    A(470, 168, 590, 168, '#fff');
+    T('Hot spot stays in place', 200, 290, 14, '#fff', 'center'); T('Plate moves →', 530, 200, 14, '#fff', 'center');
+    T('Volcanic island chain: older islands are carried away and erode', 320, 24, 14, '#212529', 'center');
+  }
+  cx.restore();
+}
+
+const PLATE_MODES = [['div', 'Divergent'], ['occ', 'Convergent: ocean + continent'], ['ccc', 'Convergent: continent + continent'], ['trn', 'Transform'], ['hot', 'Hot spot']];
+const PLATE_CAPTION = {
+  div: '<b>Divergent boundary:</b> plates move apart. Magma rises, cools, and makes <b>new ocean floor</b>, so the ocean basin gets wider.',
+  occ: '<b>Convergent (ocean + continent):</b> the denser oceanic plate sinks (subduction), making a <b>trench</b>. Melting rock feeds <b>volcanoes</b> on the continent.',
+  ccc: '<b>Convergent (continent + continent):</b> neither plate sinks easily, so the crust <b>crumples upward into mountains</b> (like the Himalayas).',
+  trn: '<b>Transform boundary:</b> plates slide past each other. They stick, stress builds, then the rock slips suddenly: an <b>earthquake</b> (like the San Andreas Fault).',
+  hot: '<b>Hot spot:</b> a stationary plume of hot mantle rock melts through the plate. As the plate moves, it carries each volcano away, building a <b>chain of islands</b> (like Hawaii). Very large hot-spot eruptions can be <b>supervolcanoes</b> (like Yellowstone).'
+};
+const FIELD = [
+  ['Click the setting where <b>new ocean floor</b> forms and the ocean basin gets wider.', 'div'],
+  ['Click the setting where an oceanic plate <b>sinks</b>, forming a trench and volcanoes on land.', 'occ'],
+  ['Click the boundary where two continents <b>collide</b> and push up huge mountains.', 'ccc'],
+  ['Click the boundary where plates <b>slide past</b> each other and cause earthquakes.', 'trn'],
+  ['Click the setting that builds a <b>chain of volcanic islands</b> in the middle of a plate.', 'hot']
+];
+
+function showPlateLab() {
+  const order = shuffle(FIELD); let step = S.labs.plates ? order.length : 0;
+  screen(hud() + '<div class="card"><span class="badge">TEKS 7.10B</span> <span class="badge">Lab Station</span><h2>🌋 Plate Boundary Lab</h2>' +
+    '<p class="sub">Explore each setting, then pass the <b>Field Test</b> below.</p>' +
+    '<canvas id="cv" class="cv" width="640" height="300" aria-label="Animated model of tectonic plate motion"></canvas>' +
+    '<div class="modes">' + PLATE_MODES.map(m => '<button class="btn" data-m="' + m[0] + '">' + m[1] + '</button>').join('') + '</div>' +
+    '<div class="readout" id="cap">Click a button to start the animation.</div>' +
+    '<h3 style="margin-top:16px">🧭 Field Test</h3><div class="readout" id="prompt"></div><div id="labmsg"></div>' +
+    '<div class="actions"><button class="btn" id="back">← Back to map</button></div></div>');
+  const cv = $('#cv'), cx = cv.getContext ? cv.getContext('2d') : null;
+  let mode = 'div', t0 = performance.now();
+  function setPrompt() { $('#prompt').innerHTML = step >= order.length ? '✅ <b>Field Test complete!</b> You identified all 5 settings.' : '<b>Question ' + (step + 1) + ' of ' + order.length + ':</b> ' + order[step][0]; }
+  function pick(m) {
+    mode = m; t0 = performance.now(); sfx('click');
+    document.querySelectorAll('.modes .btn').forEach(b => b.classList.toggle('sel', b.dataset.m === m));
+    $('#cap').innerHTML = PLATE_CAPTION[m];
+    if (step < order.length) {
+      if (order[step][1] === m) { step++; $('#labmsg').innerHTML = '<div class="fb ok pop"><b>✅ Correct!</b></div>'; sfx('ok'); setPrompt(); if (step >= order.length && !S.labs.plates) labBonus('plates'); }
+      else { $('#labmsg').innerHTML = '<div class="fb bad pop"><b>Not quite.</b> Read the caption and watch the animation, then try again.</div>'; }
+    }
+  }
+  document.querySelectorAll('.modes .btn').forEach(b => b.onclick = () => pick(b.dataset.m));
+  $('#back').onclick = showHub;
+  setPrompt();
+  function frame(now) { drawPlates(cx, mode, (now - t0) / 1000); labRAF = requestAnimationFrame(frame); }
+  labRAF = requestAnimationFrame(frame);
+}
 
 showTitle();
 </script>
